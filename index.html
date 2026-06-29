@@ -1,0 +1,1400 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔮 互動式塔羅占卜</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg-dark:#0a0a1a;--bg-card:#1a1a2e;--gold:#c9a84c;--gold-light:#f0d878;
+  --text:#e8e8e8;--purple:#6b3fa0;--purple-dark:#2a1a3e;
+  --red:#c0392b;--blue:#2980b9;--green:#27ae60;
+}
+body{font-family:'Microsoft JhengHei','PingFang TC',sans-serif;background:var(--bg-dark);color:var(--text);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;top:0;left:0;width:100%;height:100%;
+  background:radial-gradient(ellipse at 50% 0%,rgba(107,63,160,.3),transparent 60%),radial-gradient(ellipse at 80% 80%,rgba(201,168,76,.1),transparent 50%);z-index:-1}
+
+/* 星星背景 */
+.stars{position:fixed;width:100%;height:100%;top:0;left:0;z-index:-1;pointer-events:none}
+.star{position:absolute;background:#fff;border-radius:50%;animation:twinkle ease-in-out infinite}
+@keyframes twinkle{0%,100%{opacity:.2}50%{opacity:1}}
+
+.container{max-width:1200px;margin:0 auto;padding:20px}
+
+/* 標題 */
+header{text-align:center;padding:30px 0}
+header h1{font-size:2.5em;color:var(--gold);text-shadow:0 0 20px rgba(201,168,76,.5);margin-bottom:10px}
+header p{font-size:1.1em;color:#999}
+
+/* 步驟指引 */
+.steps{display:flex;justify-content:center;gap:10px;margin:20px 0;flex-wrap:wrap}
+.step{padding:8px 20px;border:1px solid var(--gold);border-radius:20px;color:var(--gold);font-size:.9em;transition:all .3s}
+.step.active{background:var(--gold);color:#000;box-shadow:0 0 15px rgba(201,168,76,.4)}
+.step.done{background:rgba(201,168,76,.2);color:var(--gold)}
+
+/* 卡片場景 */
+.scene{display:none;animation:fadeIn .5s}
+.scene.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+/* 問題輸入 */
+.question-box{text-align:center;max-width:600px;margin:0 auto;padding:30px}
+.question-box textarea{width:100%;padding:15px;border:1px solid var(--gold);border-radius:10px;background:var(--bg-card);color:var(--text);font-size:1.1em;resize:none;min-height:80px}
+.question-box textarea:focus{outline:none;border-color:var(--gold-light);box-shadow:0 0 10px rgba(201,168,76,.3)}
+
+/* 牌陣選擇 */
+.spread-options{display:flex;justify-content:center;gap:15px;flex-wrap:wrap;margin:20px 0}
+.spread-card{width:200px;padding:20px;border:1px solid #444;border-radius:12px;background:var(--bg-card);cursor:pointer;transition:all .3s;text-align:center}
+.spread-card:hover{border-color:var(--gold);transform:translateY(-5px);box-shadow:0 5px 20px rgba(201,168,76,.2)}
+.spread-card.selected{border-color:var(--gold);background:var(--purple-dark)}
+.spread-card h3{color:var(--gold);margin-bottom:8px;font-size:1.1em}
+.spread-card p{font-size:.85em;color:#999;line-height:1.5}
+.spread-card .positions{margin-top:8px;font-size:.8em;color:var(--gold-light)}
+
+/* 洗牌區 */
+.shuffle-area{text-align:center;padding:30px}
+.deck-display{display:inline-block;position:relative;width:120px;height:180px;margin:20px;cursor:pointer}
+.card-back{width:120px;height:180px;border-radius:10px;
+  background:linear-gradient(135deg,#2a1a3e,#4a2a6e);
+  border:2px solid var(--gold);position:absolute;box-shadow:0 4px 15px rgba(0,0,0,.5);
+  display:flex;align-items:center;justify-content:center;
+  background-image:repeating-linear-gradient(45deg,transparent,transparent 10px,rgba(201,168,76,.05) 10px,rgba(201,168,76,.05) 20px)}
+.card-back::after{content:'✦';font-size:40px;color:var(--gold);opacity:.5}
+.deck-display.shuffling .card-back{animation:shuffle 1s ease-in-out}
+@keyframes shuffle{0%{transform:translate(0,0) rotate(0)}25%{transform:translate(-30px,-15px) rotate(-10deg)}50%{transform:translate(20px,-30px) rotate(10deg)}75%{transform:translate(-15px,-10px) rotate(-5deg)}100%{transform:translate(0,0) rotate(0)}}
+
+/* 扇形展牌 */
+.fan-cards{display:flex;justify-content:center;align-items:center;gap:0;margin:30px 0;perspective:1000px;flex-wrap:wrap}
+.fan-card{width:80px;height:130px;margin:2px;cursor:pointer;transition:all .3s;position:relative;transform-style:preserve-3d}
+.fan-card:hover{transform:translateY(-15px) scale(1.1);z-index:10}
+.fan-card .card-back{width:80px;height:130px}
+.fan-card.selected{transform:translateY(-25px) scale(1.15);z-index:20}
+.fan-card.selected .card-back{border-color:var(--gold-light);box-shadow:0 0 20px rgba(201,168,76,.6)}
+
+/* 翻牌動畫 */
+.card-flip{width:140px;height:210px;perspective:1000px;cursor:pointer;display:inline-block;margin:8px}
+.card-flip-inner{position:relative;width:100%;height:100%;text-align:center;transition:transform .6s;transform-style:preserve-3d}
+.card-flip.flipped .card-flip-inner{transform:rotateY(180deg)}
+.card-flip .front,.card-flip .back{position:absolute;width:100%;height:100%;backface-visibility:hidden;border-radius:10px;overflow:hidden}
+.card-flip .back{background:linear-gradient(135deg,#2a1a3e,#4a2a6e);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center}
+.card-flip .back::after{content:'✦';font-size:40px;color:var(--gold);opacity:.5}
+.card-flip .front{background:var(--bg-card);border:2px solid var(--gold);transform:rotateY(180deg)}
+.card-flip .front img{width:100%;height:100%;object-fit:cover}
+.card-flip .front .fallback{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px;text-align:center}
+.card-flip .front .fallback .num{font-size:2em;color:var(--gold);margin-bottom:4px}
+.card-flip .front .fallback .name{font-size:.75em;color:var(--text);line-height:1.2}
+.card-flip .front .fallback .sd{font-size:.6em;color:var(--gold-light);margin-top:2px}
+.card-flip.reversed .card-flip-inner{transform:rotateY(180deg) rotateZ(180deg)}
+.card-flip.reversed:not(.flipped) .card-flip-inner{transform:rotateZ(180deg)}
+
+/* 牌陣排列 */
+.spread-display{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:10px;margin:20px 0}
+.spread-display.vertical{flex-direction:column}
+.spread-row{display:flex;gap:10px;align-items:center;justify-content:center}
+.card-position{display:flex;flex-direction:column;align-items:center;gap:5px}
+.position-label{font-size:.8em;color:var(--gold);text-align:center;font-weight:bold}
+
+/* 解牌結果 */
+.result-area{max-width:800px;margin:30px auto;padding:25px;background:var(--bg-card);border:1px solid var(--gold);border-radius:15px}
+.result-area h2{color:var(--gold);text-align:center;margin-bottom:15px}
+.result-card{margin:15px 0;padding:15px;border-left:3px solid var(--gold);background:rgba(0,0,0,.3);border-radius:0 8px 8px 0}
+.result-card h3{color:var(--gold-light);margin-bottom:5px}
+.result-card .upright{color:var(--green);font-weight:bold}
+.result-card .reversed{color:var(--red);font-weight:bold}
+.result-card .meaning{margin-top:8px;color:#ccc;line-height:1.6}
+.summary{margin-top:20px;padding:20px;background:rgba(107,63,160,.15);border-radius:10px;border:1px solid rgba(201,168,76,.3)}
+.summary h3{color:var(--gold);margin-bottom:10px;text-align:center}
+.summary p{color:#ddd;line-height:1.8;text-align:justify}
+
+/* 詳細解牌 */
+.detail-area{max-width:800px;margin:20px auto;padding:25px;background:linear-gradient(135deg,rgba(42,26,62,.6),rgba(26,26,46,.8));border:2px solid var(--gold);border-radius:15px;box-shadow:0 0 30px rgba(201,168,76,.15)}
+.detail-area h2{color:var(--gold);text-align:center;margin-bottom:20px;text-shadow:0 0 10px rgba(201,168,76,.3)}
+.detail-section{margin:18px 0;padding:18px 20px;background:rgba(0,0,0,.3);border-radius:12px;border-left:4px solid var(--gold)}
+.detail-section h3{color:var(--gold-light);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.detail-section p{color:#ddd;line-height:2;text-align:justify;margin-bottom:12px}
+.detail-section p:last-child{margin-bottom:0}
+.detail-section .pos-tag{display:inline-block;padding:2px 10px;border-radius:12px;font-size:.85em;margin-right:8px}
+.detail-section .pos-tag.up{background:rgba(39,174,96,.25);color:#2ecc71;border:1px solid #27ae60}
+.detail-section .pos-tag.rev{background:rgba(192,57,43,.25);color:#e74c3c;border:1px solid #c0392b}
+.detail-answer{margin-top:20px;padding:25px;background:linear-gradient(135deg,rgba(201,168,76,.1),rgba(107,63,160,.15));border-radius:15px;border:2px solid var(--gold-light);text-align:center}
+.detail-answer h3{color:var(--gold-light);margin-bottom:15px;font-size:1.3em}
+.detail-answer .verdict{display:inline-block;padding:15px 35px;font-size:1.15em;font-weight:bold;border-radius:30px;margin:10px 0}
+.detail-answer .verdict.yes{background:rgba(39,174,96,.2);color:#2ecc71;border:2px solid #27ae60}
+.detail-answer .verdict.maybe{background:rgba(241,196,15,.2);color:#f1c40f;border:2px solid #f39c12}
+.detail-answer .verdict.no{background:rgba(192,57,43,.2);color:#e74c3c;border:2px solid #c0392b}
+.detail-answer .verdict.maybe{background:rgba(155,89,182,.2);color:#bb8fce;border:2px solid #8e44ad}
+.detail-advice{margin-top:15px;padding:15px;background:rgba(0,0,0,.25);border-radius:10px;color:#eee;line-height:1.8}
+.scoring-chart{margin-top:15px;padding:15px;background:rgba(0,0,0,.25);border-radius:10px}
+.scoring-chart .bar-label{display:flex;justify-content:space-between;margin-bottom:4px;font-size:.9em}
+.scoring-chart .bar-container{height:18px;background:rgba(0,0,0,.4);border-radius:9px;overflow:hidden;position:relative}
+.scoring-chart .bar-fill{height:100%;border-radius:9px;transition:width 1s ease-out}
+.scoring-chart .bar-fill.positive{background:linear-gradient(90deg,#27ae60,#2ecc71)}
+.scoring-chart .bar-fill.neutral{background:linear-gradient(90deg,#f39c12,#f1c40f)}
+.scoring-chart .bar-fill.negative{background:linear-gradient(90deg,#c0392b,#e74c3c)}
+
+/* 設定按鈕 */
+.settings-btn{position:fixed;top:15px;right:15px;width:40px;height:40px;border-radius:50%;border:2px solid var(--gold);background:var(--bg-card);color:var(--gold);font-size:18px;cursor:pointer;z-index:100;transition:all .3s}
+.settings-btn:hover{background:var(--gold);color:#000}
+.settings-btn.has-key{border-color:#2ecc71;color:#2ecc71}
+
+/* 設定彈窗 */
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.8);z-index:200;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--bg-card);border:2px solid var(--gold);border-radius:15px;padding:30px;max-width:500px;width:90%;box-shadow:0 0 40px rgba(201,168,76,.3)}
+.modal h2{color:var(--gold);text-align:center;margin-bottom:15px}
+.modal p{color:#999;font-size:.9em;line-height:1.6;margin-bottom:15px}
+.modal input{width:100%;padding:12px;border:1px solid var(--gold);border-radius:8px;background:var(--bg-dark);color:var(--text);font-size:1em;box-sizing:border-box}
+.modal input:focus{outline:none;border-color:var(--gold-light);box-shadow:0 0 10px rgba(201,168,76,.3)}
+.modal .modal-btns{display:flex;gap:10px;justify-content:center;margin-top:20px}
+.modal .key-status{text-align:center;margin:10px 0;font-size:.85em}
+.modal .key-status.set{color:#2ecc71}
+.modal .key-status.unset{color:#e74c3c}
+.modal select{width:100%;padding:10px;border:1px solid var(--gold);border-radius:8px;background:var(--bg-dark);color:var(--text);font-size:1em;margin:10px 0;box-sizing:border-box}
+
+/* AI 解牌區 */
+.ai-area{max-width:800px;margin:20px auto;padding:25px;background:linear-gradient(135deg,rgba(42,26,62,.6),rgba(20,20,50,.8));border:2px solid #b07c4c;border-radius:15px;box-shadow:0 0 30px rgba(176,124,76,.15)}
+.ai-area h2{color:#d4a76a;text-align:center;margin-bottom:15px}
+.ai-area .ai-content{color:#e0d8c8;line-height:1.9;white-space:pre-wrap}
+.ai-area .ai-content h3{color:#d4a76a;margin:15px 0 8px}
+.ai-area .ai-content p{margin-bottom:12px}
+.ai-area .ai-content strong{color:#e8c878}
+.ai-area .ai-content em{color:#a8d4a8}
+.ai-loading{display:flex;flex-direction:column;align-items:center;padding:40px;gap:15px}
+.ai-loading .spinner{width:50px;height:50px;border:3px solid rgba(176,124,76,.3);border-top:3px solid #d4a76a;border-radius:50%;animation:spin 1s linear infinite}
+.ai-loading p{color:#d4a76a;text-align:center}
+.ai-error{padding:20px;background:rgba(192,57,43,.15);border:1px solid #e74c3c;border-radius:10px;color:#e0c8c8;text-align:center;margin:15px 0}
+.btn-ai{border-color:#b07c4c;color:#d4a76a}
+.btn-ai:hover{background:#b07c4c;color:#000;box-shadow:0 0 20px rgba(176,124,76,.4)}
+
+/* 按鈕 */
+.btn{padding:12px 30px;border:2px solid var(--gold);border-radius:25px;background:transparent;color:var(--gold);font-size:1em;cursor:pointer;transition:all .3s}
+.btn:hover{background:var(--gold);color:#000;box-shadow:0 0 20px rgba(201,168,76,.4)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-primary{background:var(--gold);color:#000}
+.btn-primary:hover{background:var(--gold-light)}
+
+.btn-group{display:flex;justify-content:center;gap:15px;margin:20px 0;flex-wrap:wrap}
+
+/* 提示 */
+.hint{text-align:center;color:#888;font-size:.9em;margin:10px 0}
+
+/* 抽牌計數 */
+.draw-counter{text-align:center;margin:10px 0;color:var(--gold)}
+.draw-counter .current{font-size:1.5em;font-weight:bold}
+
+/* 問題顯示 */
+.question-display{text-align:center;margin:15px 0;padding:10px 20px;background:rgba(107,63,160,.1);border-radius:20px;color:var(--gold-light);font-style:italic}
+
+/* Loading */
+.loading{display:inline-block;width:40px;height:40px;border:3px solid var(--gold);border-top:transparent;border-radius:50%;animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.transition { text-align:center;padding:30px }
+
+@media(max-width:600px){
+  header h1{font-size:1.8em}
+  .fan-card{width:60px;height:100px}
+  .fan-card .card-back{width:60px;height:100px}
+  .card-flip{width:100px;height:150px}
+  .spread-card{width:150px}
+}
+</style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+
+<button class="settings-btn" id="settingsBtn" onclick="openSettings()" title="AI 解牌設定">⚙</button>
+
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal">
+    <h2>⚙ AI 解牌設定</h2>
+    <p>輸入你的 Claude API Key 來啟用 AI 專業解牌功能。<br>
+    Key 只會存在你的瀏覽器中（localStorage），不會上傳到任何伺服器。<br>
+    取得 Key 請至 <a href="https://console.anthropic.com/" target="_blank" style="color:var(--gold-light)">Anthropic Console</a></p>
+    <input type="password" id="apiKeyInput" placeholder="sk-ant-...">
+    <div class="key-status" id="keyStatus"></div>
+    <select id="modelSelect">
+      <option value="claude-sonnet-4-20250514">Claude Sonnet 4（推薦，品質高）</option>
+      <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+      <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku（較快較便宜）</option>
+    </select>
+    <div class="modal-btns">
+      <button class="btn" onclick="closeSettings()">取消</button>
+      <button class="btn btn-primary" onclick="saveApiKey()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <header>
+    <h1>🔮 互動式塔羅占卜</h1>
+    <p>靜下心來，想著你的問題，讓塔羅指引你</p>
+  </header>
+
+  <div class="steps">
+    <div class="step active" id="step1">① 輸入問題</div>
+    <div class="step" id="step2">② 選擇牌陣</div>
+    <div class="step" id="step3">③ 洗牌</div>
+    <div class="step" id="step4">④ 抽牌</div>
+    <div class="step" id="step5">⑤ 翻牌解牌</div>
+  </div>
+
+  <!-- Scene 1: 問題輸入 -->
+  <div class="scene active" id="scene1">
+    <div class="question-box">
+      <h2 style="color:var(--gold);margin-bottom:15px">🙏 請在心中默念你的問題</h2>
+      <textarea id="questionInput" placeholder="例如：我的房子能在三個月內賣出嗎？&#10;或者：我未來三個月的事業運勢如何？"></textarea>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="goToSpreadSelect()">下一步 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scene 2: 牌陣選擇 -->
+  <div class="scene" id="scene2">
+    <h2 style="text-align:center;color:var(--gold);margin-bottom:20px">📊 選擇占卜牌陣</h2>
+    <div class="spread-options" id="spreadOptions"></div>
+    <div class="btn-group">
+      <button class="btn" onclick="prevScene()">← 上一步</button>
+      <button class="btn btn-primary" id="selectSpreadBtn" disabled onclick="goToShuffle()">下一步 →</button>
+    </div>
+  </div>
+
+  <!-- Scene 3: 洗牌 -->
+  <div class="scene" id="scene3">
+    <div id="questionDisplay"></div>
+    <div class="shuffle-area">
+      <h2 style="color:var(--gold);margin-bottom:10px">🔀 洗牌中...</h2>
+      <p class="hint">點擊牌堆洗牌，也可以翻轉方向。準備好後點「開始抽牌」</p>
+      <div class="deck-display" id="deckDisplay" onclick="shuffleDeck()">
+        <div class="card-back"></div>
+        <div class="card-back" style="transform:translate(2px,-2px)"></div>
+        <div class="card-back" style="transform:translate(4px,-4px)"></div>
+      </div>
+      <div class="btn-group">
+        <button class="btn" onclick="prevScene()">← 上一步</button>
+        <button class="btn" onclick="shuffleDeck()">再洗一次</button>
+        <button class="btn btn-primary" onclick="goToDraw()">開始抽牌 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scene 4: 抽牌 -->
+ <div class="scene" id="scene4">
+    <div id="questionDisplay2"></div>
+    <h2 style="text-align:center;color:var(--gold);margin-bottom:5px">🃏 請選擇你的牌</h2>
+    <div class="draw-counter" id="drawCounter"></div>
+    <p class="hint" id="drawHint">從下方扇形排列中，憑直覺點選牌</p>
+    <div class="fan-cards" id="fanCards"></div>
+    <div class="btn-group">
+      <button class="btn" onclick="prevScene()">← 重新洗牌</button>
+    </div>
+  </div>
+
+  <!-- Scene 5: 翻牌 + 解牌 -->
+  <div class="scene" id="scene5">
+    <div id="questionDisplay3"></div>
+    <h2 style="text-align:center;color:var(--gold);margin-bottom:5px">🃏 翻開你的牌</h2>
+    <p class="hint">點擊每張牌翻開，全部翻開後看完整解牌</p>
+    <div class="spread-display" id="spreadDisplay"></div>
+    <div class="btn-group">
+      <button class="btn" onclick="revealAll()">全部翻開</button>
+      <button class="btn btn-primary" id="interpretBtn" style="display:none" onclick="interpret()">完整解牌</button>
+    </div>
+    <div class="result-area" id="resultArea" style="display:none"></div>
+    <div class="btn-group" id="detailBtnGroup" style="display:none">
+      <button class="btn btn-primary" onclick="interpretDetailed()">🔮 針對問題詳細解牌</button>
+      <button class="btn btn-ai" id="aiBtn" onclick="interpretWithAI()">🤖 AI 專業解牌</button>
+      <button class="btn btn-ai" id="opencodeBtn" onclick="interpretWithOpencode()" style="display:none">🤖 opencode 解牌</button>
+      <button class="btn" id="copyBtn" onclick="copyForAI()">📋 複製牌面給 AI</button>
+    </div>
+    <div class="detail-area" id="detailArea" style="display:none"></div>
+    <div class="ai-area" id="aiArea" style="display:none"></div>
+    <div class="btn-group" id="finalButtons" style="display:none">
+      <button class="btn btn-primary" onclick="reset()">再占一次</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== 塔羅牌資料庫 ====================
+const tarotCards = [
+  // 大阿爾克那 0-21
+  {num:"0",name:"愚者",en:"The Fool",type:"major",upright:"新的開始、冒險、自由、純真、無限可能",reversed:"魯莽、冒險過頭、愚蠢、缺乏計畫",meaning:"愚者代表一段新旅程的開始，帶著孩童般的好奇與信任，踏上未知的道路。他不怕跌倒，因為相信過程本身就是收穫。",rev_meaning:"逆位的愚者提醒你：衝動不等於勇氣，盲目的跳躍可能帶來不必要的風險。在行動前花點時間深思。"},
+  {num:"I",name:"魔術師",en:"The Magician",type:"major",upright:"創造力、意志力、掌控力、技能、顯化",reversed:"欺騙、操縱、未發揮才能、缺乏自信",meaning:"魔術師擁有四元素的工具，代表你有能力將想法化為現實。只要你設定明確目標並善用資源，就能創造奇蹟。",rev_meaning:"逆位魔術師暗示才能被浪費或用於不當目的。捫心自問：你是否在欺騙自己或他人？"},
+  {num:"II",name:"女祭司",en:"The High Priestess",type:"major",upright:"直覺、潛意識、神秘、內在智慧、靜默",reversed:"忽略直覺、隱藏的秘密、資訊不透明、內在不平衡",meaning:"女祭司坐在兩根柱子之間，代表在對立中找到平衡。她提醒你傾聽內在聲音，答案不在外面，而在你的潛意識裡。",rev_meaning:"逆位元女祭司表示你過度依賴外在資訊，忽略了自己的直覺。也可能暗示有秘密被隱藏。"},
+  {num:"III",name:"皇后",en:"The Empress",type:"major",upright:"豐饒、創造、母性、自然、成長、舒適",reversed:"過度依賴、束縛、創造力受阻、忽視自我",meaning:"皇后是大地之母，代表豐盛、創造與成長。她告訴你：現在是滋養與收穫的時刻，讓事物自然發展，不強求。",rev_meaning:"逆位元皇后暗示過度保護或依賴導致停滯，也可能是創造力被家庭或情感問題所阻礙。"},
+  {num:"IV",name:"皇帝",en:"The Emperor",type:"major",upright:"權威、結構、控制、領導力、穩定、父親",reversed:"專制、僵化、濫用權力、缺乏自律、控制欲過強",meaning:"皇帝代表秩序與結構。他提醒你建立清晰的規則和目標，用紀律和穩定來支撐你的野心。",rev_meaning:"逆位元皇帝暗示過度控制或缺乏自律。你可能在某些方面太過僵硬，不願妥協。"},
+  {num:"V",name:"教皇",en:"The Hierophant",type:"major",upright:"傳統、信仰、教育、指導、婚嫁、體制",reversed:"反叛、打破常規、非傳統、自由思考",meaning:"教皇代表尋求指引和遵循傳統。他提醒你：有時候遵循已驗證的方法和智慧，比自行摸索更有效率。",rev_meaning:"逆位教皇暗示你正在挑戰傳統或感到受限於規則。也可能是尋求非常規的解決方案。"},
+  {num:"VI",name:"戀人",en:"The Lovers",type:"major",upright:"愛情、選擇、和諧、價值觀、夥伴關係",reversed:"關係失衡、錯誤選擇、價值觀衝突、不忠",meaning:"戀人牌不僅代表愛情，更代表重要的選擇。天使在上方祝福，暗示跟隨你的心和價值觀來做決定。",rev_meaning:"逆位戀人暗示關係中的不和諧或面臨艱難的選擇。你可能在內心深處知道該怎麼做卻不願面對。"},
+  {num:"VII",name:"戰車",en:"The Chariot",type:"major",upright:"意志力、決心、勝利、控制、前進、旅程",reversed:"缺乏方向、失控、衝突、侵略性、受阻",meaning:"戰車代表透過意志力和決心取得勝利。駕馭對立的力量，堅定地朝目標前進，你將會成功。",rev_meaning:"逆位元戰車暗示失去方向或控制。你可能同時想做太多事，導致什麼都做不好。"},
+  {num:"VIII",name:"力量",en:"Strength",type:"major",upright:"內在力量、勇氣、耐心、柔克剛、自制",reversed:"自我懷疑、脆弱、缺乏信心、失控、焦慮",meaning:"力量牌展現的是內在的勇氣，而非蠻力。溫柔地馴服你的恐懼，用愛和耐心來克服困難。",rev_meaning:"逆位元力量暗示你正被恐懼或自我懷疑所困。你需要重新找回對自己的信心。"},
+  {num:"IX",name:"隱者",en:"The Hermit",type:"major",upright:"獨處、內省、智慧、指引、靈性、謹慎",reversed:"孤立、退縮、拒絕指引、偏執、迷失",meaning:"隱者提著燈籠獨自行走，代表向內探索的時刻。在靜默中你會找到答案，暫時退出紛擾是必要的。",rev_meaning:"逆位隱者暗示過度孤立或拒絕他人的幫助。獨處是有益的但不要變成逃避。"},
+  {num:"X",name:"命運之輪",en:"Wheel of Fortune",type:"major",upright:"轉變、循環、好運、命運、機會、變化",reversed:"壞運、抗拒變化、失控、挫折、延遲",meaning:"命運之輪象徵生命的循環。當輪子轉動時新的機會就來了。順應變化不要抗拒。",rev_meaning:"逆位命運之輪暗示你正處於低潮或抗拒必然的變化。記住：輪子終會再轉上來。"},
+  {num:"XI",name:"正義",en:"Justice",type:"major",upright:"公平、真相、因果、法律、平衡、正直",reversed:"不公、偏見、不誠實、逃避責任、延遲",meaning:"正義牌代表因果法則。你過去的行為將帶來相應的結果。做正確的事結果自然會好。",rev_meaning:"逆位正義暗示不公平或延遲。也可能表示你需要為自己的行為負責。"},
+  {num:"XII",name:"倒吊人",en:"The Hanged Man",type:"major",upright:"暫停、犧牲、新視角、等待、放下",reversed:"無謂犧牲、停滯、拖延、無法放下、抗拒改變",meaning:"倒吊人代表有意識的等待和犧牲。換個角度看事情你會得到新的理解。順其自然暫時不求進展。",rev_meaning:"逆位倒吊人暗示無意義的等待或抗拒。你可能在為不值得的事犧牲。"},
+  {num:"XIII",name:"死神",en:"Death",type:"major",upright:"結束、轉變、蛻變、釋放、結束舊的階段",reversed:"抗拒變化、停滯、害怕結束、無法放下",meaning:"死神牌不代表死亡而是蛻變。結束是為了新生你可能需要結束一段關係或狀態才能迎接新開始。",rev_meaning:"逆位死神暗示你正在抗拒必要的結束。緊抓過去不放只會延長痛苦。"},
+  {num:"XIV",name:"節制",en:"Temperance",type:"major",upright:"平衡、調和、耐心、融合、中庸、療癒",reversed:"失衡、過度、缺乏耐心、衝突、不協調",meaning:"節制牌代表找到平衡。天使兩手持杯水流不息象徵調和對立的力量。中庸之道是最佳策略。",rev_meaning:"逆位節制暗示生活失衡某一方面過度。你需要重新調整步調找到中間點。"},
+  {num:"XV",name:"惡魔",en:"The Devil",type:"major",upright:"束縛、執著、誘惑、物質主義、成癮、合約",reversed:"解放、脫離束縛、覺醒、戒除、重獲自由",meaning:"惡魔牌代表你被某種東西束縛——金錢、慾望、恐懼或一段關係。你以為自己被困但其實鎖鏈是鬆的你可以選擇離開。",rev_meaning:"逆位元惡魔是一張好牌！代表你正在掙脫束縛重獲自由意識正在覺醒。"},
+  {num:"XVI",name:"高塔",en:"The Tower",type:"major",upright:"突變、破壞、啟示、劇變、崩塌、覺醒",reversed:"避免災難、延緩變化、抗拒真相、內在動搖",meaning:"高塔被閃電擊中代表突如其來的變化。雖然看起來像災難但它摧毀的是不穩固的根基為重建鋪路。",rev_meaning:"逆位高塔暗示你正在避免必然的變化或危機被延緩。但遲早要面對。"},
+  {num:"XVII",name:"星星",en:"The Star",type:"major",upright:"希望、信念、靈感、甦醒、指引、寧靜",reversed:"失望、悲觀、失去信念、絕望、缺乏信心",meaning:"星星牌是塔羅中最溫柔的希望。暴風雨過後星光指引方向。保持信念你會走出低谷。",rev_meaning:"逆位星星暗示暫時失去信念或感到失望。但星光仍在只是被雲遮住了。"},
+  {num:"XVIII",name:"月亮",en:"The Moon",type:"major",upright:"幻覺、潛意識、不安、直覺、未知、恐懼",reversed:"真相浮現、撥開迷霧、釋放恐懼、清醒",meaning:"月亮牌代表不確定和潛意識的恐懼。你所看到的不一定是真相。在黑暗中保持警覺但不要被恐懼吞噬。",rev_meaning:"逆位元月亮代表迷霧散去真相浮現。你開始看清事實不再被困惑所困擾。"},
+  {num:"XIX",name:"太陽",en:"The Sun",type:"major",upright:"喜悅、成功、活力、清晰、樂觀、溫暖",reversed:"暫時的陰影、延遲、失去熱情、過度樂觀、短暫低落",meaning:"太陽牌是最正向的牌之一。代表快樂、成功和活力。一切都將明朗化好消息即將到來。",rev_meaning:"逆位太陽只是暫時的陰影。光芒依然存在只是短暫被遮擋。"},
+  {num:"XX",name:"審判",en:"Judgement",type:"major",upright:"重生、覺醒、召喚、赦免、反省、決定",reversed:"自我懷疑、延期、避免反省、拒絕召喚、猶豫",meaning:"審判牌代表一個重要的覺醒時刻。天使吹響號角召喚你做出決定。你聽到了嗎？",rev_meaning:"逆位審判暗示你在猶豫或拒絕內心的召喚。可能是時候對自己做一個誠實的評估了。"},
+  {num:"XXI",name:"世界",en:"The World",type:"major",upright:"完成、圓滿、成就、成功、旅行、整合",reversed:"未完成、延遲、停滯、缺乏結論、殘局",meaning:"世界牌代表一個循環的圓滿完成。你已經走完整段旅程享受成果並準備迎接新篇章。",rev_meaning:"逆位世界暗示你離完成只差一步但停滯不前。堅持下去你終將到達。"},
+
+  // 權杖 1-14
+  {num:"1",name:"權杖王牌",en:"Ace of Wands",type:"minor-suit-wands",upright:"新靈感、熱情、成長、活力、機會、創造",reversed:"延遲、缺乏熱情、低能量、錯失機會、停滯",meaning:"一隻手從雲中伸出握住權杖代表新的靈感和熱情湧現。現在是發起新計畫的好時機。",rev_meaning:"逆位暗示熱情消退或靈感被阻塞。需要重新點燃內心的火焰。"},
+  {num:"2",name:"權杖二",en:"Two of Wands",type:"minor-suit-wands",upright:"計畫、決定、未來、選擇、探索、願景",reversed:"害怕選擇、計畫受阻、猶豫、放棄、視野受限",meaning:"權杖二代表站在高處眺望遠方。你正在規劃未來手握世界思考下一步該往哪裡去。",rev_meaning:"逆位暗示你害怕踏出舒適圈或計畫被擱置。不要讓恐懼阻止你行動。"},
+  {num:"3",name:"權杖三",en:"Three of Wands",type:"minor-suit-wands",upright:"進展、擴展、前景、等待、合作、貿易",reversed:"延遲、挫折、擴張困難、孤立、缺乏進展",meaning:"權杖三代表你的計畫已經啟動船隻正在駛向遠方。你做好準備等待成果到來。",rev_meaning:"逆位暗示延遲或合作出現問題。可能需要重新評估時程。"},
+  {num:"4",name:"權杖四",en:"Four of Wands",type:"minor-suit-wands",upright:"慶祝、團聚、穩定、家、歡迎、里程碑",reversed:"過渡期、不穩定、缺乏支持、衝突、延遲慶祝",meaning:"權杖四代表慶祝和穩定。城堡上掛著花環象徵達成里程碑。好消息和團聚的喜悅即將到來。",rev_meaning:"逆位暗示家庭或社區中的不穩定。也代表處於過渡期尚未完全安定。"},
+  {num:"5",name:"權杖五",en:"Five of Wands",type:"minor-suit-wands",upright:"競爭、衝突、障礙、多元意見、辯論",reversed:"和解、避免衝突、內在鬥爭、休戰、壓力減輕",meaning:"權杖五代表五人各持己見互相競爭。你正面臨挑戰但這也是成長的機會。",rev_meaning:"逆位代表衝突緩和或你學會了如何在競爭中保持和平。"},
+  {num:"6",name:"權杖六",en:"Six of Wands",type:"minor-suit-wands",upright:"勝利、認可、成就、榮耀、公眾讚譽",reversed:"失敗、延遲、缺乏認可、自我懷疑、名譽受損",meaning:"權杖六代表騎馬凱旋接受群眾歡呼。你的努力被看見了成功和榮耀屬於你。",rev_meaning:"逆位暗示勝利延遲或得不到應有的認可。不要因此氣餒繼續努力。"},
+  {num:"7",name:"權杖七",en:"Seven of Wands",type:"minor-suit-wands",upright:"防禦、堅守立場、挑戰、抵抗、毅力",reversed:"退讓、放棄、無法堅持、被壓倒、不堪負荷",meaning:"權杖七代表站在高處抵禦下方攻擊。你需要堅定立場保護你已建立的成果。",rev_meaning:"逆位暗示你感到不堪負荷或準備放棄。重新評估局勢也許還有轉機。"},
+  {num:"8",name:"權杖八",en:"Eight of Wands",type:"minor-suit-wands",upright:"速度、訊息、進展、旅行、迅速變化、溝通",reversed:"延遲、受阻、誤解、計畫暫停、取消",meaning:"權杖八在空中疾飛代表事情快速發展。訊息即將到來事情會比預期更快推進。",rev_meaning:"逆位暗示延遲或溝通不順。計畫可能被迫暫停耐心等待。"},
+  {num:"9",name:"權杖九",en:"Nine of Wands",type:"minor-suit-wands",upright:"毅力、堅持、防備、疲憊、接近成功",reversed:"放棄、疲憊不堪、防備過度、精疲力竭、最後關頭退縮",meaning:"權杖九代表你已經戰鬥很久受了傷但仍站立。你離成功很近了不要在這一刻放棄。",rev_meaning:"逆位暗示你精疲力竭快要放棄。即使只剩一步也要堅持下去。"},
+  {num:"10",name:"權杖十",en:"Ten of Wands",type:"minor-suit-wands",upright:"重擔、責任、努力、壓力、接近終點",reversed:"卸下重擔、釋放、委派、結束艱辛、解脫",meaning:"權杖十代表背負沉重的負擔你努力前行。雖然壓力很大但你幾乎到達終點了。",rev_meaning:"逆位是一張好牌代表你開始卸下重擔學會委派或任務即將完成。"},
+  {num:"11",name:"權杖侍者",en:"Page of Wands",type:"minor-suit-wands",upright:"探索、熱情、新消息、冒險、創意、學習",reversed:"三分鐘熱度、拖延、壞消息、缺乏方向、不成熟",meaning:"權杖侍者代表年輕的探索者充滿好奇心和熱情。新的消息或機會就在眼前。",rev_meaning:"逆位暗示熱情來得快去得也快或收到令人失望的消息。"},
+  {num:"12",name:"權杖騎士",en:"Knight of Wands",type:"minor-suit-wands",upright:"冒險、行動力、衝勁、熱情、旅行、勇敢",reversed:"衝動、魯莽、延遲、憤怒、方向感缺失、半途而廢",meaning:"權杖騎士策馬向前代表充滿能量的行動力。跟著你的熱情勇敢推進計畫。",rev_meaning:"逆位暗示衝動行事或計畫延遲。在行動前要先想清楚方向。"},
+  {num:"13",name:"權杖皇后",en:"Queen of Wands",type:"minor-suit-wands",upright:"自信、魅力、熱情、獨立、溫暖、領導力",reversed:"不安全感、嫉妒、支配欲、自我懷疑、情緒化",meaning:"權杖皇后充滿自信和魅力她不害怕展現自己。找到你內在的光芒大方地照亮周遭的人。",rev_meaning:"逆位暗示你因不安全感而表現出嫉妒或支配欲。需要重新找回自信。"},
+  {num:"14",name:"權杖國王",en:"King of Wands",type:"minor-suit-wands",upright:"領導力、遠見、魄力、果斷、企業家、鼓舞",reversed:"專制、衝動、過度控制、暴躁、不擇手段、缺乏遠見",meaning:"權杖國王是天生領袖充滿遠見和魄力。用你的熱情和決斷力帶領團隊前進。",rev_meaning:"逆位暗示領導變成控制或脾氣暴躁。需要學習授權和人溝通。"},
+
+  // 聖杯 1-14
+  {num:"1",name:"聖杯王牌",en:"Ace of Cups",type:"minor-suit-cups",upright:"新感情、愛情、直覺、靈性、喜悅、慈悲",reversed:"情感阻塞、空虛、流失、情感遲鈍、被壓抑的情緒",meaning:"聖杯中湧出清水代表愛和情感的全新開始。打開你的心好消息和溫暖即將流入。",rev_meaning:"逆位暗示情感被阻塞或空虛。你可能需要先處理舊的傷痛才能迎接新的人事物。"},
+  {num:"2",name:"聖杯二",en:"Two of Cups",type:"minor-suit-cups",upright:"伴侶、和諧、吸引力、合作、連結、戀愛",reversed:"失衡、分手、誤解、關係緊張、不和、拒絕",meaning:"聖杯二代表兩人互換杯子象徵和諧的夥伴關係。無論事業或愛情這都是一張好牌。",rev_meaning:"逆位暗示關係中出現裂痕或合作不順。需要重新溝通和理解。"},
+  {num:"3",name:"聖杯三",en:"Three of Cups",type:"minor-suit-cups",upright:"慶祝、友誼、社交、團聚、喜悅、合作",reversed:"過度放縱、社交疲勞、八卦、衝突、孤立、第三者",meaning:"聖杯三代表三位朋友舉杯同歡。友誼、慶祝和社交活動帶來歡樂。",rev_meaning:"逆位暗示社交過度造成疲勞或朋友間出現衝突。也可能是第三者介入。"},
+  {num:"4",name:"聖杯四",en:"Four of Cups",type:"minor-suit-cups",upright:"冷漠、不滿、沉思、錯失機會、無聊",reversed:"醒覺、新的興趣、重新振作、抓住機會、重新評估",meaning:"聖杯四代表一個人抱臂沉思無視身旁遞來的杯子。你正陷入不滿可能錯過眼前的好機會。",rev_meaning:"逆位暗示你開始從冷漠中醒過來注意到新的機會。打開心看看身旁的可能性。"},
+  {num:"5",name:"聖杯五",en:"Five of Cups",type:"minor-suit-cups",upright:"失落、悲傷、遺憾、專注於失去、哀悼",reversed:"接受、恢復、釋懷、向前看、原諒、走出傷痛",meaning:"聖杯五代表人物盯著倒下的三個杯子而忽略身後仍有兩個。你專注於失去的而忘了還擁有的。",rev_meaning:"逆位是一張療癒的牌代表你開始接受失去願意向前看。"},
+  {num:"6",name:"聖杯六",en:"Six of Cups",type:"minor-suit-cups",upright:"懷舊、童年、回憶、純真、善意、回歸",reversed:"留戀過去、停滯、成長、放下回憶、回到現實",meaning:"聖杯六代表兩個孩子分享花朵象徵童年的純真和善意。也代表懷舊或與舊友重逢。",rev_meaning:"逆位暗示你過度沉浸於過去需要回到現實。也可能是放下回憶向前邁進。"},
+  {num:"7",name:"聖杯七",en:"Seven of Cups",type:"minor-suit-cups",upright:"選擇、幻想、誘惑、白日夢、迷惑、可能性",reversed:"做出決定、清醒、看清真相、做出的選擇、聚焦",meaning:"聖杯七代表人物面對七個飄浮的杯子充滿各種幻想。你需要分辨什麼是真實的什麼只是幻想。",rev_meaning:"逆位暗示你開始從迷惑中清醒做出清晰的決定。是好事。"},
+  {num:"8",name:"聖杯八",en:"Eight of Cups",type:"minor-suit-cups",upright:"離開、放棄、尋找更深意義、拋下、靈性探索",reversed:"害怕離開、重返、猶豫、無法放下、原地打轉",meaning:"聖杯八代表人物轉身離開整齊排列的杯子。你選擇離開不再滿足的狀況去追尋更有意義的事物。",rev_meaning:"逆位暗示你想要離開卻猶豫不決。或者離開後又想回去。"},
+  {num:"9",name:"聖杯九",en:"Nine of Cups",type:"minor-suit-cups",upright:"滿足、願望成真、喜悅、享受、知足",reversed:"不滿足、自滿、願望未達成、放縱、自我中心",meaning:"聖杯九被稱為「願望牌」代表人物坐在九個排列整齊的杯子前微笑。你的願望即將實現盡情享受吧。",rev_meaning:"逆位暗示願望沒有完全實現或你感到不滿足。也可能過度放縱。"},
+  {num:"10",name:"聖杯十",en:"Ten of Cups",type:"minor-suit-cups",upright:"家庭幸福、圓滿、和諧、永恆的喜悅、情感豐盛",reversed:"家庭不和、失衡、破碎、價值觀不一致、表面和諧",meaning:"聖杯十代表彩虹下的一家人象徵家庭幸福和情感圓滿。這是最美好的家庭牌。",rev_meaning:"逆位暗示家庭或關係中隱藏的不和諧。表面看似美滿但內部有裂痕。"},
+  {num:"11",name:"聖杯侍者",en:"Page of Cups",type:"minor-suit-cups",upright:"新消息、直覺、創意、浪漫、驚喜、敏感",reversed:"不成熟、情緒化、愛做白日夢、敏感、消息落空",meaning:"聖杯侍者驚訝地看著杯中跳出小魚。代表突如其來的靈感或一個浪漫的 surprise。",rev_meaning:"逆位暗示情感不成熟或收到壞消息。需要更務實地面對感情。"},
+  {num:"12",name:"聖杯騎士",en:"Knight of Cups",type:"minor-suit-cups",upright:"浪漫、理想主義、魅力、藝術、追求、提議",reversed:"不切實際、嫉妒、情緒化、空想、虛假承諾、懶散",meaning:"聖杯騎士騎著白馬手持杯子代表浪漫的追求。好消息、提案或藝術靈感正在逼近。",rev_meaning:"逆位暗示不切實際或對方只是嘴上說說沒有行動。也可能是情緒化。"},
+  {num:"13",name:"聖杯皇后",en:"Queen of Cups",type:"minor-suit-cups",upright:"同理心、溫柔、直覺、關懷、情感成熟、支持",reversed:"情緒不穩、過度敏感、被情緒左右、忽視自己、依賴",meaning:"聖杯皇后坐在水邊閉目沉思代表情感的深度和同理心。傾聽你的直覺用溫柔對待自己和他人。",rev_meaning:"逆位暗示你被情緒左右或過度犧牲自己。需要先安頓好自己的心。"},
+  {num:"14",name:"聖杯國王",en:"King of Cups",type:"minor-suit-cups",upright:"冷靜、情感成熟、外交手腕、平衡、智慧、包容",reversed:"情緒操縱、冷漠、陰沉、情緒波動、自私、不負責任",meaning:"聖杯國王在海洋中保持平靜代表情感的掌控和智慧。不管外界如何波動你都能保持沉著。",rev_meaning:"逆位暗示你被情緒控制或正在操控他人。需要回歸冷靜和真誠。"},
+
+  // 寶劍 1-14
+  {num:"1",name:"寶劍王牌",en:"Ace of Swords",type:"minor-suit-swords",upright:"清晰、突破、真相、新思維、勝利、決斷",reversed:"混亂、誤解、延遲、缺乏方向、錯誤判斷",meaning:"寶劍王牌代表一隻手揮舞寶劍象徵思維的突破和真相的顯現。現在是做出明確決定的時刻。",rev_meaning:"逆位暗示思路混亂或判斷失誤。在做決定前先理清思緒。"},
+  {num:"2",name:"寶劍二",en:"Two of Swords",type:"minor-suit-swords",upright:"僵局、兩難、逃避、平衡、選擇困難、矇眼",reversed:"做出決定、解除僵局、看清真相、解除防備、釐清",meaning:"寶劍二代表矇眼的人物手持兩劍平衡。你正面臨兩難遲遲不願做決定。但有時候不做選擇本身也是一種選擇。",rev_meaning:"逆位暗示僵局被打破你開始看清真相做出決定。是好事。"},
+  {num:"3",name:"寶劍三",en:"Three of Swords",type:"minor-suit-swords",upright:"心碎、悲傷、背叛、痛苦、分離、失望",reversed:"療癒、原諒、釋懷、走出傷痛、恢復",meaning:"寶劍三代表三劍刺穿一顆心象徵深切的痛苦。悲傷是必要的不必逃避。",rev_meaning:"逆位是一張療癒的牌代表你正在走出傷痛開始原諒和釋懷。"},
+  {num:"4",name:"寶劍四",en:"Four of Swords",type:"minor-suit-swords",upright:"休息、恢復、安靜、暫停、休養、冥想",reversed:"疲倦、過勞、不願休息、被迫停止、躁動",meaning:"寶劍四代表人物正在休養一把劍放在身邊。你需要停下來充電不要硬撐。",rev_meaning:"逆位暗示你躁動不安或不願意休息。也可能是被迫停止你需要正視身心的疲憊。"},
+  {num:"5",name:"寶劍五",en:"Five of Swords",type:"minor-suit-swords",upright:"衝突、失敗、得不償失、自私、爭鬥、欺凌",reversed:"和解、釋放怨恨、從衝突中學習、放下、原諒",meaning:"寶劍五代表勝利者得意但對手失落離去。你可能贏了但代價是什麼？",rev_meaning:"逆位暗示嘗試和解或從過去的衝突中走出來。釋放怨恨才能向前。"},
+  {num:"6",name:"寶劍六",en:"Six of Swords",type:"minor-suit-swords",upright:"過渡、旅行、離開、渡河、走出困境、恢復",reversed:"抗拒改變、無法放下、停滯、延遲旅行、內在困擾",meaning:"寶劍六代表人物坐船渡過平靜的水面。你正在從困境走向更好的地方雖然過程緩慢但方向正確。",rev_meaning:"逆位暗示你抗拒離開或不願放下過去。船到了對岸你卻不肯下船。"},
+  {num:"7",name:"寶劍七",en:"Seven of Swords",type:"minor-suit-swords",upright:"欺騙、策略、暗中行動、背叛、偷竊、保密",reversed:"真情暴露、坦白、道歉、收回、不再隱瞞",meaning:"寶劍七代表人物暗中拿走五劍。暗示有人在偷偷行事或你需要使用策略來保護自己。",rev_meaning:"逆位暗示真相被揭露或你決定坦白面對。"},
+  {num:"8",name:"寶劍八",en:"Eight of Swords",type:"minor-suit-swords",upright:"受困、受害者心態、束縛、恐懼、無力感、自限",reversed:"解放、自我賦權、突破、意識到自由、看到出路",meaning:"寶劍八代表矇眼人物被劍圍繞看似被困但其實劍沒有真正綁住她。限制只存在於你的心中。",rev_meaning:"逆位是一張好牌代表你打破自我束縛看到自己其實一直都有選擇。"},
+  {num:"9",name:"寶劍九",en:"Nine of Swords",type:"minor-suit-swords",upright:"焦慮、失眠、噩夢、擔憂、恐懼、絕望",reversed:"恢復希望、走出焦慮、面對恐懼、釋放、好轉",meaning:"寶劍九代表人物在床上驚醒雙手掩面。你的焦慮比實際情況嚴重很多恐懼放大了問題。",rev_meaning:"逆位代表你開始走出焦慮看清恐懼的虛幻性。"},
+  {num:"10",name:"寶劍十",en:"Ten of Swords",type:"minor-suit-swords",upright:"結束、毀滅、谷底、背叛、痛苦的終結、黎明",reversed:"恢復、重生、從谷底回升、拒絕放棄、好轉",meaning:"寶劍十代表人物被十劍刺穿但遠處天邊露出曙光。最痛的時刻過去了黎明即將到來。",rev_meaning:"逆位代表你正在從谷底回升最壞的時刻已經過去了。"},
+  {num:"11",name:"寶劍侍者",en:"Page of Swords",type:"minor-suit-swords",upright:"好奇、警覺、新消息、學習、溝通、言語",reversed:"八卦、誤解、說話太直、信息混亂、不成熟",meaning:"寶劍侍者手持劍望向天空代表好奇和警覺。新的消息或想法正在到來保持敏銳。",rev_meaning:"逆位暗示八卦或溝通不良。小心你的言詞。"},
+  {num:"12",name:"寶劍騎士",en:"Knight of Swords",type:"minor-suit-swords",upright:"行動力、衝勁、直接、果斷、勇敢、速度",reversed:"衝動、魯莽、不擇手段、暴躁、魯莽行動、方向錯誤",meaning:"寶劍騎士策馬疾馳代表直接的行動力。果斷地朝目標衝刺不要猶豫。",rev_meaning:"逆位暗示衝動或方向錯誤。快不等於對先想好再衝。"},
+  {num:"13",name:"寶劍皇后",en:"Queen of Swords",type:"minor-suit-swords",upright:"理性、獨立、公正、說真話、敏銳、清晰的判斷",reversed:"冷酷、無情、尖銳、偏見、過度理性、刻薄",meaning:"寶劍皇后手持劍舉起一手象徵公正和理性。用理智做決定不被感情左右。",rev_meaning:"逆位暗示過度冷漠或刻薄。理性是好的但不要失去人情味。"},
+  {num:"14",name:"寶劍國王",en:"King of Swords",type:"minor-suit-swords",upright:"權威、公正、理性、法律、法官、清晰的決策",reversed:"專制、冷酷、不公、濫用權力、操控、無情",meaning:"寶劍國王代表公正和秩序。他做出決定基於事實和邏輯而非感情。",rev_meaning:"逆位暗示權力被濫用或過度冷酷。在其位者需展現公正。"},
+
+  // 錢幣 1-14
+  {num:"1",name:"錢幣王牌",en:"Ace of Pentacles",type:"minor-suit-pentacles",upright:"新機會、財富、豐盛、投資、穩定的開始",reversed:"錯失機會、財務損失、延遲、匱乏、計畫受阻",meaning:"錢幣王牌代表一隻手捧著金幣象徵物質的新機會。新的收入、投資或工作即將到來。",rev_meaning:"逆位暗示財務機會被延遲或你錯過了一個好機會。不要灰心下一個會來。"},
+  {num:"2",name:"錢幣二",en:"Two of Pentacles",type:"minor-suit-pentacles",upright:"平衡、調配、彈性、多工、選擇、應對",reversed:"失衡、過度負荷、混亂、無法兼顧、翻盤",meaning:"錢幣二代表人物雜耍兩個金幣。你正在多任務之間求平衡需要保持彈性。",rev_meaning:"逆位暗示你兼顧太多事情快要失手了。是時候放下一部分。"},
+  {num:"3",name:"錢幣三",en:"Three of Pentacles",type:"minor-suit-pentacles",upright:"合作、技藝、學習、團隊、專業、努力",reversed:"不合作、缺乏進展、技能不足、利益衝突、封閉",meaning:"錢幣三代表工匠在教堂中合作。團隊合作和專業技能是你的關鍵。",rev_meaning:"逆位暗示合作不順或缺乏專業。需要重新檢視團隊和技能。"},
+  {num:"4",name:"錢幣四",en:"Four of Pentacles",type:"minor-suit-pentacles",upright:"掌控、守財、穩定、安全、保守、佔有",reversed:"釋放、放手、浪費、過度消費、不安全感、失去控制",meaning:"錢幣四代表人物緊抱金幣腳踏兩枚。你緊抓不放以為這樣就安全了但這也阻止了流動。",rev_meaning:"逆位暗示你開始釋放控制或金錢正在流失。可能是自願的也可能不是。"},
+  {num:"5",name:"錢幣五",en:"Five of Pentacles",type:"minor-suit-pentacles",upright:"困境、貧困、被排拒、寒冷、匱乏、孤立",reversed:"恢復、走出困境、接受幫助、好轉、找到出路",meaning:"錢幣五代表兩人在教堂窗外挨餓受凍。你感到被排斥和匱乏但教堂的門是開的——幫助就在身邊你只是沒有去敲門。",rev_meaning:"逆位代表你正在走出困境或開始願意接受別人的幫助。"},
+  {num:"6",name:"錢幣六",en:"Six of Pentacles",type:"minor-suit-pentacles",upright:"給予、接受、慷慨、平衡、分享、公益",reversed:"施恩望報、權力不對等、自私、債務、失衡",meaning:"錢幣六代表富人用天平稱量金幣施捨。慷慨是好的但要注意施與受的平衡。",rev_meaning:"逆位暗示施捨帶有條件或關係中的權力不對等。檢視你的給予是否真的出於善意。"},
+  {num:"7",name:"錢幣七",en:"Seven of Pentacles",type:"minor-suit-pentacles",upright:"耐心、等待成果、評估、耕耘、暫停、投資",reversed:"急躁、收穫不佳、缺乏耐心、白費力氣、檢討方向",meaning:"錢幣七代表農夫看著成長中的藤蔓。你已經播種正在等待收穫。需要耐心。",rev_meaning:"逆位暗示你等得不耐煩或方向需要調整。停一下重新評估。"},
+  {num:"8",name:"錢幣八",en:"Eight of Pentacles",type:"minor-suit-pentacles",upright:"勤奮、專注、技藝、學習、打磨、細心",reversed:"過度完美主義、重複無聊、缺乏熱情、三心二意、粗心",meaning:"錢幣八代表工匠專注地雕刻金幣。你的細心和努力會帶來精湛的技藝和成果。",rev_meaning:"逆位暗示你缺乏熱情或過度追求完美而忘記了樂趣。"},
+  {num:"9",name:"錢幣九",en:"Nine of Pentacles",type:"minor-suit-pentacles",upright:"獨立、豐盛、成就、優雅、自給自足、享受",reversed:"依賴、不獨立、財務困難、虛榮、過度追求物質",meaning:"錢幣九代表女子站在豐盛的花園中。你透過自己的努力達到了獨立和舒適享受這份成果。",rev_meaning:"逆位暗示你依賴他人或物質生活不穩定。也可能是過度追求表面奢華。"},
+  {num:"10",name:"錢幣十",en:"Ten of Pentacles",type:"minor-suit-pentacles",upright:"傳承、財富、家族、長期成就、穩固、退休",reversed:"家庭爭執、失去財富、不穩固、投資失利、短視",meaning:"錢幣十代表三代同堂象徵家族財富和傳承。你的長期努力將帶來世代受益的穩固基礎。",rev_meaning:"逆位暗示家庭爭執或財務架構不穩固。檢視長期計畫可能有漏洞。"},
+  {num:"11",name:"錢幣侍者",en:"Page of Pentacles",type:"minor-suit-pentacles",upright:"學習、機會、務實、新計畫、腳踏實地、毅力",reversed:"拖延、缺乏進展、不善理財、不切實際、錯失機會",meaning:"錢幣侍者手捧金幣仰望天空代表渴望學習和成長。一個務實的新計畫或機會正在醞釀。",rev_meaning:"逆位暗示你缺乏執行力或不善理財。需要從理想回到實際。"},
+  {num:"12",name:"錢幣騎士",en:"Knight of Pentacles",type:"minor-suit-pentacles",upright:"勤奮、可靠、保守、務實、緩慢但穩定、毅力",reversed:"怠惰、固執、停滯、無聊、過度謹慎、缺乏變通",meaning:"錢幣騎士是最慢的騎士但最可靠。他騎著耕馬一步一步穩定前進。耐心和毅力是你的優勢。",rev_meaning:"逆位暗示你過度保守或停滯不前。穩定是好事但在該加速時也要調整步伐。"},
+  {num:"13",name:"錢幣皇后",en:"Queen of Pentacles",type:"minor-suit-pentacles",upright:"滋養、豐盛、家庭、實際、大方、安穩",reversed:"工作與生活失衡、財務焦慮、過度溺愛、物質主義、忽視自我",meaning:"錢幣皇后坐在花園中代表豐盛和實際。善用資源照顧自己和家人你也可以很富足。",rev_meaning:"逆位暗示你忽略了生活其他面向或財務焦慮影響了心情。"},
+  {num:"14",name:"錢幣國王",en:"King of Pentacles",type:"minor-suit-pentacles",upright:"成功、財富、穩定、領導、慷慨、企業家",reversed:"貪婪、物質主義、控制欲、固執、不當理財、濫用權力",meaning:"錢幣國王代表財富和事業的成功。有人問的話他是實力穩固的成功領袖善用資源創造更多價值。",rev_meaning:"逆位暗示過度追求金錢或理財失當。在你和金錢之間有沒有失衡？"}
+];
+
+// ==================== 牌陣定義 ====================
+const spreads = {
+  single: {
+    name: "單牌",
+    desc: "快速回答一個問題",
+    positions: ["當前指引"]
+  },
+  three: {
+    name: "三牌陣",
+    desc: "過去 · 現在 · 未來",
+    positions: ["過去", "現在", "未來"]
+  },
+  five: {
+    name: "五牌陣",
+    desc: "深入分析現狀",
+    positions: ["現狀", "挑戰", "建議", "近期結果", "最終結果"]
+  },
+  celtic: {
+    name: "克爾特十字",
+    desc: "最完整的占卜（10張牌）",
+    positions: ["現狀", "挑戰", "過去基礎", "近期過去", "近期未來", "潛意識目標", "自我態度", "外部影響", "希望與恐懼", "最終結果"]
+  }
+};
+
+// ==================== 全域狀態 ====================
+let currentScene = 1;
+let question = "";
+let selectedSpread = null;
+let drawnCards = [];
+let shuffledDeck = [];
+let drawCount = 0;
+let maxDraw = 0;
+
+// ==================== 星星背景 ====================
+function initStars() {
+  const container = document.getElementById('stars');
+  for (let i = 0; i < 80; i++) {
+    const star = document.createElement('div');
+    star.className = 'star';
+    const size = Math.random() * 3 + 1;
+    star.style.width = size + 'px';
+    star.style.height = size + 'px';
+    star.style.left = Math.random() * 100 + '%';
+    star.style.top = Math.random() * 100 + '%';
+    star.style.animationDuration = (Math.random() * 3 + 2) + 's';
+    star.style.animationDelay = Math.random() * 3 + 's';
+    container.appendChild(star);
+  }
+}
+
+// ==================== 場景切換 ====================
+function showScene(num) {
+  document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
+  document.getElementById('scene' + num).classList.add('active');
+  document.querySelectorAll('.step').forEach((s, i) => {
+    s.classList.remove('active', 'done');
+    if (i + 1 < num) s.classList.add('done');
+    if (i + 1 === num) s.classList.add('active');
+  });
+  currentScene = num;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function prevScene() {
+  if (currentScene > 1) showScene(currentScene - 1);
+}
+
+// ==================== 步驟 1 → 2 ====================
+function goToSpreadSelect() {
+  const input = document.getElementById('questionInput').value.trim();
+  if (!input) {
+    alert('請先輸入你的問題');
+    return;
+  }
+  question = input;
+  renderSpreadOptions();
+  showScene(2);
+}
+
+// ==================== 步驟 2：牌陣選擇 ====================
+function renderSpreadOptions() {
+  const container = document.getElementById('spreadOptions');
+  container.innerHTML = '';
+  for (const [key, spread] of Object.entries(spreads)) {
+    const card = document.createElement('div');
+    card.className = 'spread-card';
+    card.onclick = () => selectSpread(key, card);
+    card.innerHTML = `
+      <h3>${spread.name}</h3>
+      <p>${spread.desc}</p>
+      <div class="positions">${spread.positions.length} 張牌</div>
+    `;
+    container.appendChild(card);
+  }
+}
+
+function selectSpread(key, el) {
+  document.querySelectorAll('.spread-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedSpread = key;
+  document.getElementById('selectSpreadBtn').disabled = false;
+}
+
+function goToShuffle() {
+  if (!selectedSpread) return;
+  showScene(3);
+  document.getElementById('questionDisplay').innerHTML = `<div class="question-display">📌 你的問題：${question}</div>`;
+  shuffleDeck();
+}
+
+// ==================== 步驟 3：洗牌 ====================
+function shuffleDeck() {
+  const deck = document.getElementById('deckDisplay');
+  deck.classList.add('shuffling');
+  shuffledDeck = [...tarotCards].sort(() => Math.random() - 0.5).map(card => {
+    return { ...card, isReversed: Math.random() < 0.3 };
+  });
+  setTimeout(() => deck.classList.remove('shuffling'), 1000);
+}
+
+function goToDraw() {
+  if (shuffledDeck.length === 0) shuffleDeck();
+  renderFanCards();
+  drawCount = 0;
+  maxDraw = spreads[selectedSpread].positions.length;
+  drawnCards = [];
+  document.getElementById('questionDisplay2').innerHTML = `<div class="question-display">📌 你的問題：${question}</div>`;
+  updateDrawCounter();
+  showScene(4);
+}
+
+function updateDrawCounter() {
+  const counter = document.getElementById('drawCounter');
+  counter.innerHTML = `已抽 <span class="current">${drawCount}</span> / ${maxDraw} 張`;
+}
+
+// ==================== 步驟 4：抽牌 ====================
+function renderFanCards() {
+  const container = document.getElementById('fanCards');
+  container.innerHTML = '';
+  shuffledDeck.forEach((card, idx) => {
+    const el = document.createElement('div');
+    el.className = 'fan-card';
+    el.innerHTML = `<div class="card-back"></div>`;
+    el.onclick = () => drawCard(idx, el);
+    container.appendChild(el);
+  });
+}
+
+function drawCard(idx, el) {
+  if (drawCount >= maxDraw) return;
+  el.classList.add('selected');
+  setTimeout(() => { el.style.visibility = 'hidden'; }, 300);
+  drawnCards.push(shuffledDeck[idx]);
+  drawCount++;
+  updateDrawCounter();
+  if (drawCount >= maxDraw) {
+    setTimeout(() => goToReveal(), 600);
+  }
+}
+
+function goToReveal() {
+  renderSpreadDisplay();
+  document.getElementById('questionDisplay3').innerHTML = `<div class="question-display">📌 你的問題：${question}</div>`;
+  document.getElementById('interpretBtn').style.display = 'none';
+  document.getElementById('resultArea').style.display = 'none';
+  document.getElementById('finalButtons').style.display = 'none';
+  document.getElementById('detailBtnGroup').style.display = 'none';
+  document.getElementById('detailArea').style.display = 'none';
+  document.getElementById('aiArea').style.display = 'none';
+  showScene(5);
+}
+
+// ==================== 步驟 5：翻牌 ====================
+let revealedCount = 0;
+
+function renderSpreadDisplay() {
+  const container = document.getElementById('spreadDisplay');
+  container.innerHTML = '';
+  container.className = 'spread-display';
+  const positions = spreads[selectedSpread].positions;
+  drawnCards.forEach((card, idx) => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'card-position';
+    const label = document.createElement('div');
+    label.className = 'position-label';
+    label.textContent = positions[idx];
+    const flip = document.createElement('div');
+    flip.className = 'card-flip';
+    flip.dataset.cardIndex = idx;
+    flip.onclick = () => revealCard(flip);
+    const inner = document.createElement('div');
+    inner.className = 'card-flip-inner';
+    const back = document.createElement('div');
+    back.className = 'back';
+    const front = document.createElement('div');
+    front.className = 'front';
+    front.innerHTML = getCardFront(card);
+    if (card.isReversed) {
+      flip.classList.add('reversed');
+    }
+    inner.appendChild(back);
+    inner.appendChild(front);
+    flip.appendChild(inner);
+    wrapper.appendChild(label);
+    wrapper.appendChild(flip);
+    container.appendChild(wrapper);
+  });
+  revealedCount = 0;
+}
+
+function getCardFront(card) {
+  let color = '#c9a84c';
+  if (card.type === 'major') color = '#6b3fa0';
+  else if (card.type.includes('wands')) color = '#c0392b';
+  else if (card.type.includes('cups')) color = '#2980b9';
+  else if (card.type.includes('swords')) color = '#7f8c8d';
+  else if (card.type.includes('pentacles')) color = '#27ae60';
+  return `
+    <div class="fallback">
+      <div class="num" style="color:${color}">${card.num}</div>
+      <div class="name">${card.name}</div>
+      ${card.isReversed ? '<div class="sd">逆位</div>' : '<div class="sd" style="color:var(--green)">正位</div>'}
+    </div>
+  `;
+}
+
+function revealCard(el) {
+  if (el.classList.contains('flipped')) return;
+  el.classList.add('flipped');
+  revealedCount++;
+  if (revealedCount === drawnCards.length) {
+    document.getElementById('interpretBtn').style.display = 'inline-block';
+  }
+}
+
+function revealAll() {
+  document.querySelectorAll('.card-flip').forEach(el => {
+    if (!el.classList.contains('flipped')) {
+      el.classList.add('flipped');
+    }
+  });
+  revealedCount = drawnCards.length;
+  document.getElementById('interpretBtn').style.display = 'inline-block';
+}
+
+// ==================== 解牌 ====================
+function interpret() {
+  const positions = spreads[selectedSpread].positions;
+  let html = `<h2>🔍 完整解牌</h2>`;
+  html += `<div class="question-display">📌 ${question}</div>`;
+  drawnCards.forEach((card, idx) => {
+    const reversed = card.isReversed;
+    const meaning = reversed ? card.rev_meaning : card.meaning;
+    const keywords = reversed ? card.reversed : card.upright;
+    html += `
+      <div class="result-card">
+        <h3>${idx + 1}. ${positions[idx]} — ${card.name}（${card.num}）</h3>
+        <p>${reversed ? '<span class="reversed">▼ 逆位</span>' : '<span class="upright">▲ 正位</span>'}</p>
+        <p><strong>關鍵字：</strong>${keywords}</p>
+        <p class="meaning">${meaning}</p>
+      </div>
+    `;
+  });
+  
+  // 綜合解析
+  html += `<div class="summary"><h3>🌿 綜合解析</h3><p>`;
+  const majorCount = drawnCards.filter(c => c.type === 'major').length;
+  const reversedCount = drawnCards.filter(c => c.isReversed).length;
+  if (majorCount >= drawnCards.length / 2) {
+    html += `這次抽出的牌中，大阿爾克那（大牌）佔了 ${majorCount} 張，表示你正面臨人生中一個重要的轉折點，這個問題對你意義重大。`;
+  } else {
+    html += `這次抽出的牌以小阿爾克那為主，表示這個問題主要圍繞日常生活中的事件與情緒波動。`;
+  }
+  if (reversedCount > drawnCards.length / 2) {
+    html += `逆位牌偏多（${reversedCount}/${drawnCards.length}），暗示目前可能處於阻滯或需要調整的階段，事情未必如計畫順利推進，需要多些耐心和應變。`;
+  } else if (reversedCount === 0) {
+    html += `全部正位，能量流動順暢，整體來說偏正向發展。`;
+  } else {
+    html += `正逆位參半，代表這個問題有好的可能性，但也要注意部分的阻力與挑戰。`;
+  }
+  html += `</p></div>`;
+  
+  document.getElementById('resultArea').innerHTML = html;
+  document.getElementById('resultArea').style.display = 'block';
+  document.getElementById('detailBtnGroup').style.display = 'flex';
+  document.getElementById('finalButtons').style.display = 'flex';
+  document.getElementById('interpretBtn').style.display = 'none';
+  document.getElementById('detailArea').style.display = 'none';
+
+  setTimeout(() => {
+    document.getElementById('resultArea').scrollIntoView({ behavior: 'smooth' });
+  }, 300);
+}
+
+// ==================== 詳細解牌（針對問題） ====================
+function interpretDetailed() {
+  const positions = spreads[selectedSpread].positions;
+  const q = question;
+
+  // 偵測問題類型
+  const qType = detectQuestionType(q);
+
+  // 計算正負向分數
+  let positiveScore = 0, neutralScore = 0, negativeScore = 0;
+  drawnCards.forEach(card => {
+    const score = scoreCard(card, qType);
+    if (score > 0) positiveScore += score;
+    else if (score < 0) negativeScore += -score;
+    else neutralScore += 1;
+  });
+  const total = drawnCards.length;
+  const positivePct = Math.round((positiveScore / (positiveScore + negativeScore + neutralScore)) * 100);
+  const negativePct = Math.round((negativeScore / (positiveScore + negativeScore + neutralScore)) * 100);
+  const neutralPct = 100 - positivePct - negativePct;
+
+  let verdict, verdictClass;
+  if (positivePct >= 65) { verdict = "偏向正面 ✅"; verdictClass = "yes"; }
+  else if (negativePct >= 55) { verdict = "偏向負面 ❌"; verdictClass = "no"; }
+  else { verdict = "中性 / 有變數 🔮"; verdictClass = "maybe"; }
+
+  let html = `<h2>🔮 針對問題的詳細解牌</h2>`;
+  html += `<div class="question-display">📌 ${q}</div>`;
+
+  // 問題類型
+  html += `<div class="detail-section"><h3>📋 問題分析</h3><p>`;
+  html += getQuestionTypeText(qType);
+  html += `</p></div>`;
+
+  // 逐牌針對性解說
+  html += `<div class="detail-section"><h3>🃏 逐牌針對性解說</h3>`;
+  drawnCards.forEach((card, idx) => {
+    const reversed = card.isReversed;
+    const tag = reversed ? '<span class="pos-tag rev">逆位</span>' : '<span class="pos-tag up">正位</span>';
+    html += `<p><strong>${positions[idx]}：</strong>${tag}<strong>${card.name}</strong><br>`;
+    html += getCardContextReading(card, positions[idx], qType, reversed);
+    html += `</p>`;
+  });
+  html += `</div>`;
+
+  // 牌陣整體故事線
+  html += `<div class="detail-section"><h3>📖 牌陣故事線</h3><p>`;
+  html += getSpreadNarrative(drawnCards, positions, qType, selectedSpread);
+  html += `</p></div>`;
+
+  // 分數圖表
+  html += `<div class="scoring-chart"><h3 style="color:var(--gold-light);margin-bottom:12px">📊 能量分佈</h3>`;
+  html += `<div class="bar-label"><span style="color:#2ecc71">正面能量 ${positivePct}%</span><span style="color:#f1c40f">中性 ${neutralPct}%</span><span style="color:#e74c3c">負面能量 ${negativePct}%</span></div>`;
+  html += `<div class="bar-container"><div class="bar-fill positive" style="width:${positivePct}%;float:left"></div><div class="bar-fill neutral" style="width:${neutralPct}%;float:left"></div><div class="bar-fill negative" style="width:${negativePct}%;float:left"></div></div></div>`;
+
+  // 結論
+  html += `<div class="detail-answer"><h3>🔮 占卜結論</h3>`;
+  html += `<div class="verdict ${verdictClass}">${verdict}</div>`;
+  html += `<div class="detail-advice"><strong>具體建議：</strong><br>${getAdvice(drawnCards, qType, verdictClass)}</div></div>`;
+
+  document.getElementById('detailArea').innerHTML = html;
+  document.getElementById('detailArea').style.display = 'block';
+  document.getElementById('detailBtnGroup').style.display = 'none';
+
+  setTimeout(() => {
+    document.getElementById('detailArea').scrollIntoView({ behavior: 'smooth' });
+  }, 300);
+
+  // 觸發動畫
+  setTimeout(() => {
+    document.querySelectorAll('.bar-fill').forEach(bar => {
+      const w = bar.style.width;
+      bar.style.width = '0';
+      setTimeout(() => bar.style.width = w, 50);
+    });
+  }, 100);
+}
+
+// 偵測問題類型
+function detectQuestionType(q) {
+  const s = q.toLowerCase();
+  if (/賣|房子|房屋|出售|出售|房地|買賣|轉手|脫手/.test(q)) return "property";
+  if (/事业|工作|職場|求職|升遷|創業|事業|轉職|離職|老闆|加薪|生意/.test(q)) return "career";
+  if (/感情|愛情|戀愛|交往|結婚|婚姻|復合|對象|另一半|曖昧|前任|分手|桃花/.test(q)) return "love";
+  if (/財|錢|賺|收入|投資|理財|賠|獲利|盈餘|富/.test(q)) return "money";
+  if (/健康|生病|病情|身體|疾病|痊癒|復原|病/.test(q)) return "health";
+  if (/學業|考試|考|讀書|升學|成績|學習|金榜|錄取/.test(q)) return "study";
+  if (/旅行|出差|搬|移居|出國|長途|旅行|航班/.test(q)) return "travel";
+  return "general";
+}
+
+function getQuestionTypeText(t) {
+  const map = {
+    property:"這是一個關於**房屋買賣**的問題。塔羅會從「市場時機、定價策略、買家狀況、成交障礙」等角度來回應。",
+    career:"這是一個關於**事業工作**的問題。塔羅會從「能力發揮、職場環境、時機、人際關係」等角度來回應。",
+    love:"這是一個關於**感情**的問題。塔羅會從「關係現狀、雙方態度、潛在問題、未來走向」等角度來回應。",
+    money:"這是一個關於**財務**的問題。塔羅會從「收入機會、支出風險、投資時機、理財策略」等角度來回應。",
+    health:"這是一個關於**健康**的問題。塔羅會從「身心狀態、恢復時程、需要注意的事項」等角度來回應。請注意塔羅僅供參考，醫療問題請務必諮詢專業醫師。",
+    study:"這是一個關於**學業考試**的問題。塔羅會從「準備狀況、臨場表現、競爭狀況、結果走向」等角度來回應。",
+    travel:"這是一個關於**旅行遷移**的問題。塔羅會從「行程順利度、意外變數、時機選擇」等角度來回應。",
+    general:"這是一個綜合性問題。塔羅會從整體能量流動的角度給予指引。"
+  };
+  return map[t] || map.general;
+}
+
+// 為每張牌評分（-2 ~ +2）
+function scoreCard(card, qType) {
+  const major = card.type === "major";
+  let base = 0;
+  // 先以牌的普遍吉凶性質為基礎分
+  const veryPos = ["太陽","世界","命運之輪","星星","皇后","節制","聖杯九","聖杯十","錢幣十","權杖六","權杖四"];
+  const pos = ["愚者","魔術師","女祭司","戀人","戰車","力量","隱者","正義","審判","權杖王牌","聖杯王牌","寶劍王牌","錢幣王牌","權杖三","權杖八","錢幣三","錢幣九","聖杯二","聖杯六","寶劍六","錢幣六","錢幣七"];
+  const neg = ["倒吊人","月亮","寶","寶劍三","寶劍五","寶","寶劍七","寶劍九","寶劍十","錢幣五","聖杯五","聖杯四","聖杯七","聖杯八","權杖五","權杖七","權杖九","權杖十","錢幣四"];
+  const veryNeg = ["高塔","死神","惡魔"];
+  const mixed = ["皇帝","教皇","寶劍二","寶劍四","錢幣二","權杖二"];
+
+  const name = card.name;
+  if (veryPos.includes(name)) base = 2;
+  else if (pos.includes(name)) base = 1;
+  else if (neg.includes(name)) base = -1;
+  else if (veryNeg.includes(name)) base = -1.5;
+  else if (mixed.includes(name)) base = 0;
+  else base = major ? 0.5 : 0;
+
+  // 逆位通常扣分（但惡魔、死神、高塔逆位反而是好）
+  if (card.isReversed) {
+    if (["惡魔","死神","高塔","寶劍十","寶","寶劍九","寶劍三"].includes(name)) base += 1;
+    else base = base - 1;
+  }
+
+  // 針對問題類型微調
+  if (qType === "property") {
+    if (["錢幣王牌","錢幣六","錢","錢幣十","權杖六","權杖八","太陽","世界"].includes(name)) base += 0.5;
+    if (["死神","高塔","惡魔","寶劍十"].includes(name) && !card.isReversed) base -= 0.5;
+    if (["錢幣四","權杖七"].includes(name)) base -= 0.5;
+  }
+  if (qType === "career") {
+    if (["皇帝","魔術師","戰車","權杖六","權杖國王","錢幣國王"].includes(name)) base += 0.5;
+  }
+  if (qType === "love") {
+    if (["戀人","聖杯二","聖杯十","聖杯六","皇后"].includes(name)) base += 0.5;
+  }
+  if (qType === "money") {
+    if (["錢幣王牌","錢","錢幣九","錢幣十","皇后","世界"].includes(name)) base += 0.5;
+    if (["錢幣五","錢幣四逆位","寶劍十"].includes(name)) base -= 0.5;
+  }
+
+  return base;
+}
+
+// 逐牌針對性解說
+function getCardContextReading(card, position, qType, reversed) {
+  const map = {
+    property:GetPropertyReading(card, position, reversed),
+    career:GetCareerReading(card, position, reversed),
+    love:GetLoveReading(card, position, reversed),
+    money:GetMoneyReading(card, position, reversed),
+    health:GetHealthReading(card, position, reversed),
+    study:GetStudyReading(card, position, reversed),
+    travel:GetTravelReading(card, position, reversed),
+  };
+  return map[qType] || (reversed ? card.rev_meaning : card.meaning);
+}
+
+// ==================== 房屋買賣 ====================
+function GetPropertyReading(card, position, reversed) {
+  const name = card.name;
+  const readings = {
+    "太陽": reversed ? "光環暫時被遮一下，買氣稍冷，但不是壞事，調整一下定價或帶看時段即可。" : "買氣明亮、出價踴躍，是很棒的成交牌，訊息即將到來。",
+    "世界": reversed ? "已接近成交但因最後一步卡住，需要處理殘局（如尾款、過戶、修繕）。" : "圓滿成交牌！整個流程會走完，屬於順利達陣。",
+    "命運之輪": reversed ? "房市進入淡季或時機未到，不要強求，等下一輪買氣再啟動。" : "買家即將出現，市場輪動對你有利，進展會自己來。",
+    "星星": reversed ? "暫時乏人問津讓你失去信心，但不要降價，維持曝光、等待必然到來的好消息。" : "保持信念，有遠方買家正在關注你的房子，光就在前方。",
+    "皇后": reversed ? "過度裝潢或讓條件綁住，反而讓買家望而卻步，讓房子「容易說話」。" : "豐饒能量，你的房子會讓買家有一見鍾情的感覺，收穫豐盛。",
+    "節制": reversed ? "可能在定價或條件上偏一邊，需要找到平衡點，不要堅持到極限。" : "中庸之道最佳，定價合理、議價理性，成交機率高。",
+    "死神": reversed ? "抗拒必要的調整（如降價、修繕、換房仲），拖久了反而更不利。" : "結束舊的框架（如舊定價、舊裝潢、舊行舊行銷方式），蛻變後才有新買家上門。",
+    "高塔": reversed ? "突發狀況被你硬擋下來，但問題仍在，遲早要面對（如買家貸款被擋）。" : "市場劇變或定價崩落，但這也是重新起跑的轉機。",
+    "惡魔": reversed ? "從被房貸或某條件綁住中鬆綁，可能會有財務掙脫的決定。" : "被某條件（如房貸、定價、時間壓力）綁住，動彈不得。",
+    "錢幣王牌": reversed ? "買家的出價可能低於預期，或買氣的進展延遲。" : "新的物質機會正在降臨，有心買家帶著錢上門。",
+    "錢幣六": reversed ? "議價過程中出現不公平感，買家可能壓價過多。" : "買賣雙方理性協商，公平交易，適當讓步能成交。",
+    "錢幣十": reversed ? "長期佈局出現裂痕，或家族房產傳承有爭議。" : "長期圓滿成交，可能是家族傳承或買方為長期置產。",
+    "錢幣九": reversed ? "在交易中失去主動權，或因想賣高價而錯失買家。" : "你有市場主導權，可以選買家、定價格，屬於賣方市場。",
+    "錢幣四": reversed ? "開始放掉價格堅持，可能對成交有利。" : "緊抱高價不放，以為安全，實際上是在阻止流動。",
+    "權杖八": reversed ? "訊息和買氣延遲，廣告或仲介沒推到位。" : "訊息流通飛快，帶看排程踴躍，事情比預期更快推進。",
+    "權杖六": reversed ? "成交延期或仲介帶看出狀況，信心受挫。" : "勝利牌，帶看反應好、競價出現，你正在被推到成交線上。",
+    "聖杯九": reversed ? "預期價格沒達到，但換個角度其實也不差。" : "願望成真，會以你滿意的價格或條件成交。",
+    "愚者": reversed ? "貿然掛牌或定價衝動，可能在缺乏準備下上線，需要注意資訊完整度。" : "新開始，全新行銷或換房仲是可行的，跳出框架有驚喜。",
+    "魔術師": reversed ? "行銷或仲介能力沒發揮，或你自己沒有明確目標。" : "善用仲介、廣告、修繕等工具，你能掌握主動把房子賣個好價。",
+    "戰車": reversed ? "多頭進攻卻沒有方向，太多房仲同時帶看反而打結。" : "意志力主導，主動出擊，帶看、談判你都會贏。",
+    "隱者": reversed ? "過度低調讓房子沒曝光，需要走出來讓買家找到。" : "市場沉澱期，看屋人少但這個階段是在累積，等待是必要的。",
+    "寶劍三": reversed ? "正在走出買家毀約或破盤價的傷痛，調整心態。" : "可能面臨買家殺價過頭或毀約的挫折，需要釋懷。",
+    "寶劍十": reversed ? "最壞的市場狀況過去了，即將回升。" : "市場谷底，定價或成交價可能崩到最低，但也是黎明前。",
+  };
+  if (readings[name]) return readings[name];
+  return reversed ? card.rev_meaning : card.meaning;
+}
+
+// ==================== 事業工作 ====================
+function GetCareerReading(card, position, reversed) {
+  const name = card.name;
+  const readings = {
+    "皇帝": reversed ? "職場太過僵化，上司管太嚴，需要彈性。" : "權威在工作，適合領導專案或展現決斷力。",
+    "魔術師": reversed ? "才能沒發揮，或被放在不對的位置。" : "事業大爆發，提案、創意都能成真。",
+    "戰車": reversed ? "目標太多反而失焦，收斂是關鍵。" : "前進動能強，升遷或專案推進順利。",
+    "太陽": reversed ? "光芒暫時被遮，等待被看見的機會。" : "事業高峰，被讚賞、晉升之牌。",
+    "世界": reversed ? "距離目標只剩一步，要堅持到最後。" : "階段任務圓滿完成，可以收割成果。",
+  };
+  return readings[name] || (reversed ? card.rev_meaning : card.meaning);
+}
+
+// ==================== 感情 ====================
+function GetLoveReading(card, position, reversed) {
+  const name = card.name;
+  const readings = {
+    "戀人": reversed ? "關係出現不平衡，需要重建信任。" : "戀情升溫或新的感情對象出現。",
+    "聖杯二": reversed ? "關係裂痕，溝通出問題。" : "靈魂伴侶牌，雙方契合度高。",
+    "聖杯十": reversed ? "家庭內有隱性裂痕，表面美滿。" : "家庭幸福圓滿，長久關係。",
+    "皇帝": reversed ? "控制欲過強，伴侶感到壓迫。" : "關係中穩定、有責任感的伴侶。",
+    "惡魔": reversed ? "正在從有毒關係中走出來。" : "關係被執著或誘惑綁住，可能是不健康依賴。",
+  };
+  return readings[name] || (reversed ? card.rev_meaning : card.meaning);
+}
+
+// ==================== 財運 ====================
+function GetMoneyReading(card, position, reversed) {
+  const name = card.name;
+  const readings = {
+    "錢幣王牌": reversed ? "財務機會延遲或錯失，但不是沒救。" : "新的收入來源或投資機會上門。",
+    "錢幣九": reversed ? "財務獨立度下降或過度消費。" : "獨立且豐盛，財務自主。",
+    "錢幣十": reversed ? "長期投資出現隱憂，需要檢視。" : "財富傳承，長期投資獲利。",
+    "錢幣五": reversed ? "走出財務低潮，開始接受外援。" : "財務困難期，需要尋求幫助。",
+    "惡魔": reversed ? "從物質主義或債務中解放。" : "被金錢或物慾綁住，可能負債或成癮。",
+  };
+  return readings[name] || (reversed ? card.rev_meaning : card.meaning);
+}
+
+// ==================== 健康 ====================
+function GetHealthReading(card, position, reversed) {
+  const name = card.name;
+  const readings = {
+    "太陽": reversed ? "恢復進度稍緩，仍有希望。" : "健康活力回復，好消息。",
+    "死神": reversed ? "抗拒必要的改變（如戒菸、開刀）。" : "舊症狀結束，轉變康復階段。",
+    "高塔": reversed ? "病情被硬擋，但仍需正視。" : "突發健康事件，需要立刻處理。",
+    "寶劍三": reversed ? "從傷痛中恢復。" : "心理痛苦或身體不適，需釋放。",
+  };
+  return readings[name] || (reversed ? card.rev_meaning : card.meaning);
+}
+
+// ==================== 學業 ====================
+function GetStudyReading(card, position, reversed) {
+  const name = card.name;
+  const readings = {
+    "教皇": reversed ? "不適合傳統讀法，需要找自己的方法。" : "跟對老師、報對補習班，指導很關鍵。",
+    "隱者": reversed ? "閉門讀書過頭，需要找同伴討論。" : "獨自用功，深度學習效果最好。",
+    "太陽": reversed ? "成績暫時低落，但很快回升。" : "金榜題名、高分上榜。",
+    "寶劍王牌": reversed ? "思路不清，需要釐清重點。" : "考試關鍵突破，思維清晰。",
+  };
+  return readings[name] || (reversed ? card.rev_meaning : card.meaning);
+}
+
+// ==================== 旅行 ====================
+function GetTravelReading(card, position, reversed) {
+  const name = card.name;
+  const readings = {
+    "權杖八": reversed ? "航班延遲、行程受阻。" : "行程快速順利，旅途投最快。",
+    "愚者": reversed ? "準備不足就出發，可能有意外。" : "說走就走，充滿驚喜。",
+    "世界": reversed ? "行程差一步，注意回到國門或轉機。" : "旅途圓滿，達成目標。",
+  };
+  return readings[name] || (reversed ? card.rev_meaning : card.meaning);
+}
+
+// ==================== 牌陣故事線 ====================
+function getSpreadNarrative(cards, positions, qType, spreadKey) {
+  if (spreadKey === "single") {
+    return `這張牌指出你目前的指引方向：${cards[0].name}（${cards[0].isReversed ? '逆位' : '正位'}）。${cards[0].isReversed ? cards[0].rev_meaning : cards[0].meaning}`;
+  }
+  if (spreadKey === "three") {
+    const past = cards[0], now = cards[1], future = cards[2];
+    return `從<strong>${positions[0]}</strong>的「${past.name}」可以看到，這件事的起因是${past.isReversed ? past.rev_meaning : past.meaning}<br><br>
+    來到<strong>${positions[1]}</strong>的「${now.name}」，目前的狀況是${now.isReversed ? now.rev_meaning : now.meaning}<br><br>
+    而<strong>${positions[2]}</strong>的「${future.name}」指出下一步的走向：${future.isReversed ? future.rev_meaning : future.meaning}<br><br>
+    <em>整體來看，${past.name} → ${now.name} → ${future.name} 的能量流動${isNarrativePositive(cards) ? '偏向正面發展' : '存在需要克服的阻力'}。</em>`;
+  }
+  if (spreadKey === "five") {
+    let s = "這組牌呈現完整的現況分析：<br><br>";
+    cards.forEach((c, i) => {
+      s += `<strong>${positions[i]}</strong>：${c.name}（${c.isReversed ? '逆位' : '正位'}）— ${c.isReversed ? c.rev_meaning : c.meaning}<br><br>`;
+    });
+    s += `<em>${isNarrativePositive(cards) ? '整體能量流動順暢，建議把握時機。' : '整體來說需要適度調整，阻力可以轉化為成長。'}</em>`;
+    return s;
+  }
+  if (spreadKey === "celtic") {
+    let s = "這組克爾特十字牌陣提供最完整的占卜視角：<br><br>";
+    cards.forEach((c, i) => {
+      s += `• <strong>${positions[i]}</strong>：${c.name}（${c.isReversed ? '逆位' : '正位'}）— ${c.isReversed ? c.rev_meaning : c.meaning}<br><br>`;
+    });
+    const lastCard = cards[cards.length - 1];
+    s += `<em>最終結果指向${lastCard.name}，${lastCard.isReversed ? '需要注意尚未完成的課題' : '整體走向偏向圓滿'}。</em>`;
+    return s;
+  }
+  return "";
+}
+
+function isNarrativePositive(cards) {
+  let pos = 0;
+  cards.forEach(c => { if (scoreCard(c, "general") > 0) pos++; });
+  return pos >= cards.length / 2;
+}
+
+// ==================== 具體建議 ====================
+function getAdvice(cards, qType, verdictClass) {
+  const adviceMap = {
+    property: {
+      yes: "目前買氣和定價條件對你有利，建議保持現在的節奏，可適度增加曝光，迎接順利成交。注意買家條件和貸款狀況即可。",
+      no: "目前市場或定價有阻力，建議主動調整價格或條件往中間靠攏，也可以換房仲、增加曝光。耐心等待下一波買氣。",
+      maybe: "成敗關鍵在於你願不願意適度讓步。找到買賣雙方的平衡點，成交機率會大幅提升。時機會偏後段，不要急。"
+    },
+    career: {
+      yes: "事業動能順暢，建議把握當下主動出擊，展現你的能力和決斷。升遷、新專案都有機會。",
+      no: "目前遇到阻力，建議先沉潛或調整方向。不要硬碰硬，尋求新的角度和貴人。",
+      maybe: "事業處在選擇分歧點，建議釐清自己的目標，不要多頭進攻，聚焦在一條路上。"
+    },
+    love: {
+      yes: "關係往正向發展，建議繼續投入真心，把握當下的相處品質。準備好迎接更深的連結。",
+      no: "關係存在挑戰，建議先誠實面對問題，必要時尋求溝通或輔導。不要假裝沒事。",
+      maybe: "關係處在關鍵轉折，你的選擇將決定走向。建議傾聽內心，別被外在壓力左右。"
+    },
+    money: {
+      yes: "財運順暢，建議把握當下機會，合理投資或加碼。仍要注意風險控制。",
+      no: "財務遇到阻力，建議保守理財，避免高風險投資。先求穩再求賺。",
+      maybe: "財運起伏，建議中性操作，分散風險。有進有出，不要孤注一擲。"
+    },
+    health: {
+      yes: "健康恢復順利，保持目前的作息和治療即可。仍要定期回診追蹤。",
+      no: "健康需要更多關注，建議調整作息、積極就醫。身心靈全方位照顧。 （請務必諮詢醫師）",
+      maybe: "健康狀況有變數，建議不要太樂觀也不要恐慌，完整檢查和遵從醫囑是關鍵。"
+    },
+    study: {
+      yes: "讀書效率高，建議保持節奏，考試當天沉著應戰。有望金榜題名。",
+      no: "目前學習遇到瓶頸，建議換方法、找指導，不要悶著頭讀。",
+      maybe: "成敗在一線之間，建議聚焦重點、模擬演練。臨場穩定度決定一切。"
+    },
+    travel: {
+      yes: "行程順利，建議輕鬆出發。仍要留意天氣和航班變化。",
+      no: "行程可能有變數，建議預留緩衝、備妥方案。不要冒險趕路。",
+      maybe: "旅行有驚喜也有變數，建議保持彈性，隨機應變。"
+    },
+    general: {
+      yes: "整體能量順暢，建議順勢而為，把握當下的機會。",
+      no: "目前遇到阻力，建議放慢腳步、調整策略，耐心等待轉機。",
+      maybe: "情況在變動中，建議保持彈性和中庸，不要極端操作。"
+    }
+  };
+  return (adviceMap[qType] && adviceMap[qType][verdictClass]) || adviceMap.general[verdictClass];
+}
+
+// ==================== 重新開始 ====================
+function reset() {
+  question = "";
+  selectedSpread = null;
+  drawnCards = [];
+  shuffledDeck = [];
+  drawCount = 0;
+  revealedCount = 0;
+  document.getElementById('questionInput').value = '';
+  document.querySelectorAll('.spread-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('selectSpreadBtn').disabled = true;
+  document.getElementById('detailArea').style.display = 'none';
+  document.getElementById('detailBtnGroup').style.display = 'none';
+  document.getElementById('aiArea').style.display = 'none';
+  showScene(1);
+}
+
+// ==================== 初始化 ====================
+initStars();
+updateSettingsBtn();
+
+// 啟動時偵測 opencode proxy 是否運行中
+(async function() {
+  const status = await checkOpencodeProxy();
+  if (status) {
+    document.getElementById('opencodeBtn').style.display = 'inline-block';
+    console.log('✓ opencode proxy 已連線');
+  }
+})();
+
+// ==================== API Key 設定 ====================
+function openSettings() {
+  const key = localStorage.getItem('anthropic_api_key') || '';
+  const model = localStorage.getItem('anthropic_model') || 'claude-sonnet-4-20250514';
+  document.getElementById('apiKeyInput').value = key;
+  document.getElementById('modelSelect').value = model;
+  updateKeyStatus(key);
+  document.getElementById('settingsModal').classList.add('show');
+}
+
+function closeSettings() {
+  document.getElementById('settingsModal').classList.remove('show');
+}
+
+function saveApiKey() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  const model = document.getElementById('modelSelect').value;
+  if (key) {
+    localStorage.setItem('anthropic_api_key', key);
+    localStorage.setItem('anthropic_model', model);
+  } else {
+    localStorage.removeItem('anthropic_api_key');
+    localStorage.removeItem('anthropic_model');
+  }
+  updateSettingsBtn();
+  updateKeyStatus(key);
+  setTimeout(closeSettings, 500);
+}
+
+function updateKeyStatus(key) {
+  const el = document.getElementById('keyStatus');
+  if (key) {
+    el.className = 'key-status set';
+    el.textContent = '✅ API Key 已設定（將儲存在瀏覽器中）';
+  } else {
+    el.className = 'key-status unset';
+    el.textContent = '⚠ 尚未設定 API Key，AI 解牌功能無法使用';
+  }
+}
+
+function updateSettingsBtn() {
+  const btn = document.getElementById('settingsBtn');
+  const key = localStorage.getItem('anthropic_api_key');
+  if (key) btn.classList.add('has-key');
+  else btn.classList.remove('has-key');
+}
+
+// ==================== AI 專業解牌 ====================
+async function interpretWithAI() {
+  const apiKey = localStorage.getItem('anthropic_api_key');
+  if (!apiKey) {
+    const area = document.getElementById('aiArea');
+    area.style.display = 'block';
+    area.innerHTML = `<div class="ai-error">⚠ 尚未設定 API Key。<br>請點右上角 ⚙ 按鈕輸入你的 Claude API Key。</div>`;
+    area.scrollIntoView({ behavior: 'smooth' });
+    return;
+  }
+
+  const model = localStorage.getItem('anthropic_model') || 'claude-sonnet-4-20250514';
+  const area = document.getElementById('aiArea');
+  area.style.display = 'block';
+  area.innerHTML = `<div class="ai-loading"><div class="spinner"></div><p> Claude 正在深入分析你的牌面...<br>這可能需要幾秒鐘✨</p></div>`;
+  area.scrollIntoView({ behavior: 'smooth' });
+
+  const positions = spreads[selectedSpread].positions;
+  const cardList = drawnCards.map((card, idx) => {
+    return `位置 ${idx + 1}「${positions[idx]}」：${card.name}（編號 ${card.num}）${card.isReversed ? '【逆位】' : '【正位】'}\n  關鍵字：${card.isReversed ? card.reversed : card.upright}`;
+  }).join('\n\n');
+
+  const prompt = buildAIPrompt(question, positions, drawnCards, cardList);
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: model,
+        max_tokens: 3000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`API 錯誤 (${response.status}): ${errText}`);
+    }
+
+    const data = await response.json();
+    const aiText = data.content && data.content[0] ? data.content[0].text : '未收到回應';
+
+    area.innerHTML = `<div class="ai-content">${markdownToHtml(aiText)}</div>
+      <div class="btn-group"><button class="btn btn-ai" onclick="interpretWithAI()">🔄 重新解牌</button></div>`;
+    area.scrollIntoView({ behavior: 'smooth' });
+  } catch (err) {
+    area.innerHTML = `<div class="ai-error">❌ 解牌失敗：<br>${err.message}<br><br>可能原因：<br>• API Key 無效或已過期<br>• 網路連線問題<br>• API 用量超額<br><br>請檢查設定後再試一次。</div>
+      <div class="btn-group"><button class="btn btn-ai" onclick="interpretWithAI()">重試</button></div>`;
+  }
+}
+
+function buildAIPrompt(q, positions, cards, cardList) {
+  const spreadName = spreads[selectedSpread].name;
+  const positionsText = positions.map((p, i) => `${i + 1}. ${p}`).join('、');
+
+  return `你是一位精通塔羅占卜的專業占卜師，熟悉 Rider-Waite-Smith 塔羅系統及各種經典塔羅文獻。請用繁體中文針對使用者提出的問題，結合所抽出的牌做一次專業且有深度的解讀。
+
+【占卜問題】
+${q}
+
+【使用牌陣】${spreadName}牌陣（共 ${cards.length} 張）
+【牌陣位置】${positionsText}
+
+【抽出的牌】
+${cardList}
+
+請依照以下結構回答，用 markdown 格式撰寫：
+
+## 📋 問題與牌陣分析
+先用 1-2 段話分析這個問題的核心，說明這個牌陣適合從哪些角度來解讀這個問題。
+
+## 🃏 逐牌解逐牌解讀
+針對每一張牌，結合它在牌陣中的位置與問題做解讀：
+- 說明這張牌在這個位置代表什麼意義
+- 如果是逆位要特別說明逆位在此情境的含義
+- 不要只給通用牌意，要扣回「使用者問的問題」
+
+## 🔮 整體占卜結論
+1. 綜合所有牌給出一個明確的結論（正面/中性/負面）
+2. 指出最重要的關鍵牌（影響最大的一張）
+3. 給出具體可行的建議（3 點以內）
+
+注意事項：
+- 請誠實中肯，正位和逆位都要準確反映牌意，不為了討好而扭曲
+- 請使用塔羅社群通用的詮釋體系（以 Rider-Waite 為主）
+- 如果有大阿爾克那（大牌），請特別強調其象徵意義
+- 結尾加一句鼓勵或提醒的話`;
+}
+
+// ==================== 複製牌面給 AI（方案1）====================
+function copyForAI() {
+  const positions = spreads[selectedSpread].positions;
+  const spreadName = spreads[selectedSpread].name;
+
+  let text = `我是用塔羅占卜網頁抽出的牌，請你以專業塔羅占卜師的身分，依據 Rider-Waite 塔羅系統為我解讀。
+
+【我的問題】
+${question}
+
+【使用牌陣】${spreadName}牌陣（共 ${drawnCards.length} 張）
+
+【抽出的牌】
+`;
+
+  drawnCards.forEach((card, idx) => {
+    text += `位置 ${idx + 1}「${positions[idx]}」：${card.name}（編號 ${card.num}）${card.isReversed ? '【逆位】' : '【正位】'}\n`;
+    text += `  關鍵字：${card.isReversed ? card.reversed : card.upright}\n\n`;
+  });
+
+  text += `
+請依照以下結構回答：
+1. 問題與牌陣分析
+2. 逐牌解讀（請扣回我的問題，正位/逆位都要準確說明）
+3. 整體占卜結論（明確指出正面/中性/負面）
+4. 具體可行的建議（3 點以內）`;
+
+  // 複製到剪貼簿
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('✅ 已複製到剪貼簿！請貼到 AI 對話框（claude.ai 或此處）');
+    }).catch(() => {
+      fallbackCopy(text);
+    });
+  } else {
+    fallbackCopy(text);
+  }
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand('copy');
+    showToast('✅ 已複製到剪貼簿！請貼到 AI 對話框');
+  } catch (e) {
+    showToast('❌ 複製失敗，請手動複製');
+  }
+  document.body.removeChild(ta);
+}
+
+function showToast(msg) {
+  let toast = document.getElementById('toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'toast';
+    toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--gold);color:#000;padding:12px 25px;border-radius:25px;font-size:.95em;z-index:300;box-shadow:0 4px 15px rgba(0,0,0,.4);transition:opacity .3s';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.opacity = '1';
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => { toast.style.opacity = '0'; }, 3000);
+}
+
+// ==================== opencode 解牌（方案2：透過 proxy）====================
+async function checkOpencodeProxy() {
+  try {
+    const res = await fetch('http://localhost:7788/', { method: 'GET' });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.opencode_available ? data : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function interpretWithOpencode() {
+  const area = document.getElementById('aiArea');
+  area.style.display = 'block';
+  area.innerHTML = `<div class="ai-loading"><div class="spinner"></div><p>opencode 正在解牌...</p><p style="color:#888;font-size:.85em">（透過本地 proxy）<br>第一次可能需 30 秒～數分鐘，請耐心等候 ☕</p></div>`;
+  area.scrollIntoView({ behavior: 'smooth' });
+
+  const positions = spreads[selectedSpread].positions;
+  const payload = {
+    question: question,
+    spread_name: spreads[selectedSpread].name,
+    positions: positions,
+    cards: drawnCards.map(c => ({
+      name: c.name,
+      num: c.num,
+      isReversed: c.isReversed,
+      upright: c.upright,
+      reversed: c.reversed
+    }))
+  };
+
+  try {
+    const res = await fetch('http://localhost:7788/tarot-interpret', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '未知錯誤');
+
+    area.innerHTML = `<h2>🤖 opencode 解牌結果</h2>
+      <div class="question-display">📌 ${question}</div>
+      <div class="ai-content">${markdownToHtml(data.result)}</div>
+      <div class="btn-group">
+        <button class="btn btn-ai" onclick="interpretWithOpencode()">🔄 重新解牌</button>
+      </div>`;
+    area.scrollIntoView({ behavior: 'smooth' });
+  } catch (err) {
+    area.innerHTML = `<div class="ai-error">❌ opencode 解牌失敗：<br>${err.message}<br><br>可能原因：<br>• proxy 伺服器沒有啟動<br>• opencode 指令找不到<br>• 解牌過程中斷<br><br>請確認：<br>1. 已執行：node /Users/huangyuhui/Documents/opencode0530/tarot/proxy.js<br>2. opencode 已安裝並且登入</div>
+      <div class="btn-group"><button class="btn btn-ai" onclick="interpretWithOpencode()">重試</button></div>`;
+  }
+}
+
+// 簡易 Markdown 轉 HTML
+function markdownToHtml(md) {
+  let html = md;
+  // 跳脫 HTML 特殊字元
+  html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // 標題
+  html = html.replace(/^## (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^# (.+)$/gm, '<h3>$1</h3>');
+  // 粗體
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // 斜體
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  // 列表
+  html = html.replace(/^• (.+)$/gm, '<p>• $1</p>');
+  html = html.replace(/^- (.+)$/gm, '<p>• $1</p>');
+  // 數字列表
+  html = html.replace(/^\d+\. (.+)$/gm, '<p>$1</p>');
+  // 換行 → 段落
+  const lines = html.split('\n');
+  let result = '';
+  let inUl = false;
+  for (let line of lines) {
+    if (line.match(/^<h3>|<p>/)) {
+      if (inUl) { result += '</ul>'; inUl = false; }
+      result += line + '\n';
+    } else if (line.match(/^<p>•/)) {
+      result += line.replace('<p>', '').replace('</p>', '') + '\n';
+    } else if (line.trim() === '') {
+      if (inUl) { result += '</ul>'; inUl = false; }
+    } else {
+      result += `<p>${line}</p>\n`;
+    }
+  }
+  // 連續列表項包 ul
+  result = result.replace(/(<li>[^<]*<\/li>(\s*<li>[^<]*<\/li>)+)/g, '<ul>$1</ul>');
+  result = result.replace(/^• (.+)$/gm, '<li>• $1</li>');
+  // 再次處理：把連續 li 包成 ul
+  result = result.replace(/(<li>[^<]*<\/li>\n?)+/g, m => '<ul>' + m + '</ul>');
+  return result;
+}
+</script>
+</body>
+</html>
